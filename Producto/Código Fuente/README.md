@@ -1,73 +1,51 @@
-# React + TypeScript + Vite
+# Sistema de Gestión Bibliotecaria Resiliente
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Este es un proyecto en fase de **desarrollo activo**. Se trata de un sistema moderno para la gestión de bibliotecas con un enfoque principal en la **resiliencia**.
 
-Currently, two official plugins are available:
+El objetivo de este sistema es garantizar la continuidad operativa completa: si la conexión a internet falla, el sistema seguirá funcionando localmente sin interrupciones, sincronizando los datos una vez que se restablezca la conexión.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Tecnologías Utilizadas
 
-## React Compiler
+### Frontend
+- **React 19:** Biblioteca principal para la construcción de interfaces de usuario.
+- **TypeScript:** Para un tipado estricto y un código más seguro.
+- **Vite:** Herramienta de construcción y entorno de desarrollo de alta velocidad.
+- **Tailwind CSS v4:** Framework de CSS basado en utilidades para un diseño rápido, responsivo y moderno.
+- **Lucide React:** Colección de iconos limpios y consistentes.
+- **PWA (Progressive Web App):** Configurado a través de `vite-plugin-pwa` para permitir la instalación de la app y el soporte offline en el cliente.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Backend y Base de Datos
+- **Supabase:** Plataforma Backend-as-a-Service (BaaS) utilizada como base de datos principal en la nube y para la gestión de autenticación.
+- **PostgreSQL (Local / Docker):** Se utilizará un servidor de PostgreSQL levantado mediante contenedores de Docker para garantizar la persistencia de datos y el funcionamiento del sistema en redes locales cuando no haya conexión a internet.
 
-## Expanding the ESLint configuration
+## 🏗️ Estado Actual del Proyecto
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+El proyecto se encuentra en sus etapas iniciales de desarrollo. Hasta la fecha, se han implementado las siguientes características principales de infraestructura y UI:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Configuración inicial del stack (React + TypeScript + Vite + Tailwind).
+- Integración del cliente de Supabase.
+- Creación de un sistema de autenticación de base.
+- Implementación del soporte para modo Oscuro/Claro.
+- Maquetado base del Panel de Control (Dashboard), que actualmente incluye marcadores para estadísticas en tiempo real (Libros disponibles, Préstamos activos) y un indicador de estado de conexión (Online/Offline).
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+**Próximas fases de desarrollo:**
+1. Configuración de la base de datos local en Docker (PostgreSQL).
+2. Lógica de sincronización bidireccional entre Supabase en la nube y la base de datos local.
+3. Desarrollo de los módulos del catálogo de libros (CRUD).
+4. Desarrollo de la lógica de préstamos y devoluciones.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 💻 Desarrollo
+
+Para levantar este proyecto de manera local, asegúrate de tener instaladas las dependencias:
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Luego, puedes inicializar el servidor de desarrollo en la dirección local:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+*(Nota: Posteriormente se requerirán comandos adicionales para desplegar el contenedor de Docker con la BD local).*
