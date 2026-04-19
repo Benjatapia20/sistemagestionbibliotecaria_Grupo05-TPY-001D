@@ -9,6 +9,7 @@ interface Libro {
     stock: number;
     genero?: string;
     caratula?: string;
+    caratula_url?: string;
 }
 
 interface Props {
@@ -86,9 +87,19 @@ export const ListaLibros = ({ onDataLoaded }: Props) => {
                     <div key={libro.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 transition-all hover:shadow-md flex flex-col sm:flex-row gap-5">
 
                         {/* Carátula */}
-                        {libro.caratula ? (
+                        {libro.caratula || libro.caratula_url ? (
                             <div className="w-full sm:w-28 h-40 shrink-0 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
-                                <img src={libro.caratula} alt={`Carátula de ${libro.titulo}`} className="object-cover w-full h-full" />
+                                <img 
+                                    src={libro.caratula || ''} 
+                                    alt={`Carátula de ${libro.titulo}`} 
+                                    className="object-cover w-full h-full"
+                                    onError={(e) => {
+                                        const img = e.target as HTMLImageElement;
+                                        if (libro.caratula_url && img.src !== libro.caratula_url) {
+                                            img.src = libro.caratula_url;
+                                        }
+                                    }}
+                                />
                             </div>
                         ) : (
                             <div className="w-full sm:w-28 h-40 shrink-0 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center text-slate-300 dark:text-slate-600">
