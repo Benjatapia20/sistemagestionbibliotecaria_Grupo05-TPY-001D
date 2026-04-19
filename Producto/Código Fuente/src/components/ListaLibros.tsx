@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface Libro {
     id: number;
@@ -17,16 +18,37 @@ export const ListaLibros = ({ onDataLoaded }: Props) => {
     const [loading, setLoading] = useState(true);
 
     const cargarLibros = async () => {
-        try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 segundos de espera máxima
 
-            const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL}/libros`);
+        try {
+            const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL}/libros`, {
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (!response.ok) throw new Error("Servidor local no disponible");
             const data = await response.json();
             setLibros(data);
             if (onDataLoaded) {
                 onDataLoaded(data.length);
             }
         } catch (error) {
-            console.error("Error al conectar con el servidor local:", error);
+            console.warn("Servidor local no disponible, cargando desde Supabase...", error);
+            try {
+                const { data: supabaseData, error: supabaseError } = await supabase
+                    .from('libros')
+                    .select('*')
+                    .order('id', { ascending: false });
+                
+                if (supabaseError) throw supabaseError;
+                
+                if (supabaseData) {
+                    setLibros(supabaseData);
+                    if (onDataLoaded) onDataLoaded(supabaseData.length);
+                }
+            } catch (fallbackError) {
+                console.error("No se pudo conectar a ninguna base de datos:", fallbackError);
+            }
         } finally {
             setLoading(false);
         }
