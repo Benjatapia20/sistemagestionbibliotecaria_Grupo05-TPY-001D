@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: biblio-db-local
+    restart: always
+    environment:
+      - POSTGRES_DB=biblioteca
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=pwa_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+
+  api:
+    image: postgrest/postgrest
+    container_name: biblio-api-local
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PGRST_DB_URI=postgres://admin:pwa_password@db:5432/biblioteca
+      - PGRST_DB_SCHEMA=public
+      - PGRST_DB_ANON_ROLE=web_anon
+    depends_on:
+      - db
+
+  adminer:
+    image: adminer
+    container_name: biblio-adminer
+    restart: always
+    ports:
+      - "8080:8080"
+      
+      
+  upload-api:
+    build: ./upload-api
+    container_name: biblio-upload-api
+    restart: always
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./caratulas:/app/caratulas
+

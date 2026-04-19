@@ -6,7 +6,7 @@ import { useDarkMode } from './hooks/useDarkMode';
 import { ListaLibros } from './components/ListaLibros';
 import { AgregarLibro } from './components/AgregarLibro';
 import { sincronizarConNube } from './lib/sync';
-import { Sun, Moon, LogOut, User as UserIcon } from 'lucide-react';
+import { Sun, Moon, LogOut, User as UserIcon, PlusCircle } from 'lucide-react';
 
 // Componentes de Layout
 import { Sidebar } from './components/layout/Sidebar';
@@ -17,13 +17,28 @@ function App() {
   const { isDark, toggleTheme } = useDarkMode();
   const [refreshKey, setRefreshKey] = useState(0);
   const [totalLibros, setTotalLibros] = useState(0);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
   // Estado para la navegación
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('biblio_activeTab') || 'dashboard';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('biblio_activeTab', activeTab);
+  }, [activeTab]);
 
   const handleLibroAgregado = async () => {
     setRefreshKey(prev => prev + 1);
+    setIsAddModalOpen(false);
     await sincronizarConNube();
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    // Cambiamos el estado DESPUÉS de cerrar sesión. Como ya estamos en la pantalla de Login, no hay salto visual.
+    setActiveTab('dashboard');
+    localStorage.setItem('biblio_activeTab', 'dashboard');
   };
 
   useEffect(() => {
@@ -57,11 +72,20 @@ function App() {
         {/* Contenido Principal */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-24 md:pb-8">
           
-          {activeTab === 'dashboard' && (
+          <div className={activeTab === 'dashboard' ? 'block' : 'hidden'}>
             <div className="space-y-6 max-w-7xl mx-auto">
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-                Panel de Control
-              </h1>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+                  Panel de Control
+                </h1>
+                <button
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold shadow-sm w-full sm:w-auto justify-center"
+                >
+                  <PlusCircle className="w-5 h-5" />
+                  Nuevo Libro
+                </button>
+              </div>
 
               {/* Estadísticas */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -82,25 +106,22 @@ function App() {
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-          {activeTab === 'catalogo' && (
+          <div className={activeTab === 'catalogo' ? 'block' : 'hidden'}>
             <div className="space-y-6 max-w-7xl mx-auto">
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
                 Catálogo de Libros
               </h1>
               
-              {/* Formulario de ingreso */}
-              <AgregarLibro onLibroAgregado={handleLibroAgregado} />
-
               {/* Lista de libros */}
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors duration-300 overflow-hidden">
                 <ListaLibros key={refreshKey} onDataLoaded={setTotalLibros} />
               </div>
             </div>
-          )}
+          </div>
 
-          {activeTab === 'config' && (
+          <div className={activeTab === 'config' ? 'block' : 'hidden'}>
             <div className="space-y-6 max-w-2xl mx-auto">
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-6">
                 Ajustes del Sistema
@@ -138,7 +159,7 @@ function App() {
                 {/* Cerrar Sesión */}
                 <div className="p-6">
                   <button
-                    onClick={() => supabase.auth.signOut()}
+                    onClick={handleLogout}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl transition-colors font-bold"
                   >
                     <LogOut className="w-5 h-5" />
@@ -147,9 +168,21 @@ function App() {
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
         </main>
+
+        {/* Modal de Agregar Libro */}
+        {isAddModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md animate-in fade-in zoom-in duration-200">
+              <AgregarLibro 
+                onLibroAgregado={handleLibroAgregado} 
+                onCancel={() => setIsAddModalOpen(false)} 
+              />
+            </div>
+          </div>
+        )}
 
         {/* BottomNav para Móviles */}
         <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
