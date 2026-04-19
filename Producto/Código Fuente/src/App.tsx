@@ -18,7 +18,7 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [totalLibros, setTotalLibros] = useState(0);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  
+
   // Estado para la navegación
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('biblio_activeTab') || 'dashboard';
@@ -63,7 +63,7 @@ function App() {
 
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-50 overflow-hidden transition-colors duration-300">
-      
+
       {/* Sidebar para Escritorio */}
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -71,7 +71,7 @@ function App() {
 
         {/* Contenido Principal */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-24 md:pb-8">
-          
+
           <div className={activeTab === 'dashboard' ? 'block' : 'hidden'}>
             <div className="space-y-6 max-w-7xl mx-auto">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -113,7 +113,7 @@ function App() {
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
                 Catálogo de Libros
               </h1>
-              
+
               {/* Lista de libros */}
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors duration-300 overflow-hidden">
                 <ListaLibros key={refreshKey} onDataLoaded={setTotalLibros} />
@@ -174,11 +174,11 @@ function App() {
 
         {/* Modal de Agregar Libro */}
         {isAddModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4">
             <div className="w-full max-w-md animate-in fade-in zoom-in duration-200">
-              <AgregarLibro 
-                onLibroAgregado={handleLibroAgregado} 
-                onCancel={() => setIsAddModalOpen(false)} 
+              <AgregarLibro
+                onLibroAgregado={handleLibroAgregado}
+                onCancel={() => setIsAddModalOpen(false)}
               />
             </div>
           </div>
