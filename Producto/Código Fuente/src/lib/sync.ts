@@ -41,9 +41,10 @@ const syncCaratulaToSupabase = async (caratulaLocalUrl: string, isbn: string): P
     }
 };
 
-export const sincronizarConNube = async () => {
+export const sincronizarConNube = async (): Promise<{ success: boolean; message: string }> => {
     try {
         let librosParaSincronizar: any[] = [];
+        let servidorLocalDisponible = false;
 
         // 1. Obtener libros del servidor local (Docker) si está online
         try {
@@ -55,29 +56,31 @@ export const sincronizarConNube = async () => {
             if (resLocal.ok) {
                 const librosLocales = await resLocal.json();
                 librosParaSincronizar = [...librosLocales];
+                servidorLocalDisponible = true;
+                console.log('✅ Servidor local disponible, sincronizando...');
             }
         } catch (e) {
-            console.warn('Servidor local inaccesible durante sincronización');
+            console.warn('⚠️ Servidor local no disponible durante sincronización');
         }
 
-        // 2. Obtener libros guardados offline en la PWA
-        const pendientesStr = localStorage.getItem('libros_pendientes');
-        let librosPendientes: any[] = [];
-        if (pendientesStr) {
-            librosPendientes = JSON.parse(pendientesStr);
-            // Quitamos el ID negativo temporal para que Supabase genere uno real
-            const pendientesLimpios = librosPendientes.map(({ id, ...resto }) => resto);
-            librosParaSincronizar = [...librosParaSincronizar, ...pendientesLimpios];
+        // Si el servidor local no está disponible, no sincronizamos
+        if (!servidorLocalDisponible) {
+            console.warn('Sincronización cancelada: servidor local no disponible');
+            return { success: false, message: 'Servidor local no disponible. Conéctese a la red local para sincronizar.' };
         }
 
-        if (librosParaSincronizar.length === 0) return;
+        if (librosParaSincronizar.length === 0) {
+            return { success: true, message: 'No hay libros para sincronizar' };
+        }
+
+        console.log('📚 Libros a sincronizar:', librosParaSincronizar.length);
 
         // 3. Por cada libro, sincronizar carátula a Supabase si existe y no tiene URL de Supabase
         const librosConCaratulaUrl = await Promise.all(
             librosParaSincronizar.map(async (libro) => {
                 let caratulaUrl = libro.caratula_url || null;
 
-                // Si tiene carátula local y no tiene URL de Supabase, subirla
+                // Solo subir carátula si no tiene URL de Supabase
                 if (libro.caratula && !caratulaUrl && libro.caratula.startsWith('http')) {
                     caratulaUrl = await syncCaratulaToSupabase(libro.caratula, libro.isbn);
                 }
@@ -101,13 +104,10 @@ export const sincronizarConNube = async () => {
 
         if (error) throw error;
 
-        // 5. Si fue exitoso, limpiamos la cola offline
-        if (librosPendientes.length > 0) {
-            localStorage.removeItem('libros_pendientes');
-        }
-
         console.log('✅ Sincronización con la nube exitosa');
+        return { success: true, message: 'Sincronización exitosa' };
     } catch (err) {
         console.error('❌ Falló la sincronización:', err);
+        return { success: false, message: 'Error al sincronizar con la nube' };
     }
 };
