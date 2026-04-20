@@ -4,13 +4,26 @@ import type { Session } from '@supabase/supabase-js';
 import Login from './components/Login';
 import { useDarkMode } from './hooks/useDarkMode';
 import { ListaLibros } from './components/ListaLibros';
+import { ListaLibrosSimple } from './components/ListaLibrosSimple';
 import { AgregarLibro } from './components/AgregarLibro';
+import { EditarLibro } from './components/EditarLibro';
 import { sincronizarConNube } from './lib/sync';
-import { Sun, Moon, LogOut, User as UserIcon, PlusCircle } from 'lucide-react';
+import { Sun, Moon, LogOut, User as UserIcon, PlusCircle, RefreshCw } from 'lucide-react';
 
 // Componentes de Layout
 import { Sidebar } from './components/layout/Sidebar';
 import { BottomNav } from './components/layout/BottomNav';
+
+interface Libro {
+  id: number;
+  titulo: string;
+  autor: string;
+  isbn: string;
+  stock: number;
+  genero?: string;
+  caratula?: string;
+  caratula_url?: string;
+}
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -18,6 +31,10 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [totalLibros, setTotalLibros] = useState(0);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [libroEditando, setLibroEditando] = useState<Libro | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   // Estado para la navegación
   const [activeTab, setActiveTab] = useState(() => {
@@ -31,12 +48,29 @@ function App() {
   const handleLibroAgregado = async () => {
     setRefreshKey(prev => prev + 1);
     setIsAddModalOpen(false);
-    await sincronizarConNube();
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncStatus('Sincronizando...');
+    try {
+      const result = await sincronizarConNube();
+      setSyncStatus(result.message);
+      if (result.success) {
+        setRefreshKey(prev => prev + 1);
+      }
+      setTimeout(() => setSyncStatus(null), 3000);
+    } catch (error) {
+      setSyncStatus('Error al sincronizar');
+      console.error('Error de sincronización:', error);
+      setTimeout(() => setSyncStatus(null), 3000);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    // Cambiamos el estado DESPUÉS de cerrar sesión. Como ya estamos en la pantalla de Login, no hay salto visual.
     setActiveTab('dashboard');
     localStorage.setItem('biblio_activeTab', 'dashboard');
   };
@@ -44,14 +78,10 @@ function App() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (_event === 'SIGNED_IN') {
-        sincronizarConNube();
-      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) sincronizarConNube();
     });
 
     return () => subscription.unsubscribe();
@@ -78,13 +108,50 @@ function App() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
                   Panel de Control
                 </h1>
-                <button
-                  onClick={() => setIsAddModalOpen(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold shadow-sm w-full sm:w-auto justify-center"
-                >
-                  <PlusCircle className="w-5 h-5" />
-                  Nuevo Libro
-                </button>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={handleSync}
+                    disabled={syncing}
+                    className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold w-full sm:w-auto justify-center"
+                  >
+                    <RefreshCw className={`w-5 h-5 ${syncing ? 'animate-spin' : ''}`} />
+                    {syncing ? 'Sincronizando...' : 'Sincronizar'}
+                  </button>
+                  <button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold shadow-sm w-full sm:w-auto justify-center"
+                  >
+                    <PlusCircle className="w-5 h-5" />
+                    Nuevo Libro
+                  </button>
+                </div>
+              </div>
+
+              {/* Estado de sincronización */}
+              {syncStatus && (
+                <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg text-sm">
+                  {syncStatus}
+                </div>
+              )}
+
+              {/* Lista de libros simple */}
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="font-bold text-slate-900 dark:text-white">Lista de Libros</h2>
+                  <button
+                    onClick={() => setRefreshKey(prev => prev + 1)}
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Actualizar
+                  </button>
+                </div>
+                <ListaLibrosSimple 
+                  key={refreshKey} 
+                  onEditar={(libro) => {
+                    setLibroEditando(libro);
+                    setIsEditModalOpen(true);
+                  }} 
+                />
               </div>
 
               {/* Estadísticas */}
@@ -179,6 +246,26 @@ function App() {
               <AgregarLibro
                 onLibroAgregado={handleLibroAgregado}
                 onCancel={() => setIsAddModalOpen(false)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Editar Libro */}
+        {isEditModalOpen && libroEditando && (
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md animate-in fade-in zoom-in duration-200">
+              <EditarLibro
+                libro={libroEditando}
+                onGuardado={() => {
+                  setRefreshKey(prev => prev + 1);
+                  setIsEditModalOpen(false);
+                  setLibroEditando(null);
+                }}
+                onCancel={() => {
+                  setIsEditModalOpen(false);
+                  setLibroEditando(null);
+                }}
               />
             </div>
           </div>
