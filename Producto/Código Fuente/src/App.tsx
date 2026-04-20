@@ -41,6 +41,7 @@ function App() {
     return localStorage.getItem('biblio_activeTab') || 'dashboard';
   });
 
+
   useEffect(() => {
     localStorage.setItem('biblio_activeTab', activeTab);
   }, [activeTab]);
@@ -76,6 +77,9 @@ function App() {
   };
 
   useEffect(() => {
+
+
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
@@ -145,12 +149,12 @@ function App() {
                     Actualizar
                   </button>
                 </div>
-                <ListaLibrosSimple 
-                  key={refreshKey} 
+                <ListaLibrosSimple
+                  key={refreshKey}
                   onEditar={(libro) => {
                     setLibroEditando(libro);
                     setIsEditModalOpen(true);
-                  }} 
+                  }}
                 />
               </div>
 
@@ -176,16 +180,7 @@ function App() {
           </div>
 
           <div className={activeTab === 'catalogo' ? 'block' : 'hidden'}>
-            <div className="space-y-6 max-w-7xl mx-auto">
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-                Catálogo de Libros
-              </h1>
-
-              {/* Lista de libros */}
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors duration-300 overflow-hidden">
-                <ListaLibros key={refreshKey} onDataLoaded={setTotalLibros} />
-              </div>
-            </div>
+              <ListaLibros key={refreshKey} onDataLoaded={setTotalLibros} />
           </div>
 
           <div className={activeTab === 'config' ? 'block' : 'hidden'}>
