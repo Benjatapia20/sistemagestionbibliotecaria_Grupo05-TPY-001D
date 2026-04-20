@@ -69,20 +69,8 @@ export const AgregarLibro = ({ onLibroAgregado, onCancel }: Props) => {
                 throw new Error("Servidor local rechazó la petición");
             }
         } catch (error) {
-            console.warn("Servidor local no disponible, guardando en dispositivo offline...", error);
-
-            // Cola Offline: Guardar en localStorage
-            const pendientesStr = localStorage.getItem('libros_pendientes');
-            const pendientes = pendientesStr ? JSON.parse(pendientesStr) : [];
-
-            // Asignamos un ID temporal negativo solo para el renderizado visual
-            const nuevoLibroOffline = { ...libro, id: -Date.now() };
-            pendientes.push(nuevoLibroOffline);
-            localStorage.setItem('libros_pendientes', JSON.stringify(pendientes));
-
-            alert("Estás sin conexión al servidor principal. El libro se ha guardado en tu dispositivo y se sincronizará cuando haya internet.");
-            setLibro({ titulo: '', autor: '', isbn: '', stock: 1, genero: '', caratula: '' });
-            onLibroAgregado();
+            console.error("Servidor local no disponible:", error);
+            alert("No se pudo conectar al servidor local. Verifica que estés conectado a la red local.");
         } finally {
             setLoading(false);
         }
