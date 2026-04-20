@@ -19,10 +19,11 @@ interface Props {
 export const ListaLibros = ({ onDataLoaded }: Props) => {
     const [libros, setLibros] = useState<Libro[]>([]);
     const [loading, setLoading] = useState(true);
+    const [localServerOnline, setLocalServerOnline] = useState<boolean | null>(null);
 
     const cargarLibros = async () => {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 segundos de espera máxima
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
 
         try {
             const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL}/libros`, {
@@ -32,11 +33,13 @@ export const ListaLibros = ({ onDataLoaded }: Props) => {
             if (!response.ok) throw new Error("Servidor local no disponible");
             const data = await response.json();
             setLibros(data);
+            setLocalServerOnline(true);
             if (onDataLoaded) {
                 onDataLoaded(data.length);
             }
         } catch (error) {
             console.warn("Servidor local no disponible, cargando desde Supabase...", error);
+            setLocalServerOnline(false);
             try {
                 const { data: supabaseData, error: supabaseError } = await supabase
                     .from('libros')
@@ -46,13 +49,6 @@ export const ListaLibros = ({ onDataLoaded }: Props) => {
                 if (supabaseError) throw supabaseError;
 
                 let dataToSet = supabaseData || [];
-
-                // Mostrar también los libros que se guardaron offline y aún no se sincronizan
-                const pendientesStr = localStorage.getItem('libros_pendientes');
-                if (pendientesStr) {
-                    const pendientes = JSON.parse(pendientesStr);
-                    dataToSet = [...pendientes, ...dataToSet];
-                }
 
                 setLibros(dataToSet);
                 if (onDataLoaded) onDataLoaded(dataToSet.length);
@@ -90,15 +86,9 @@ export const ListaLibros = ({ onDataLoaded }: Props) => {
                         {libro.caratula || libro.caratula_url ? (
                             <div className="w-full sm:w-28 h-40 shrink-0 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
                                 <img 
-                                    src={libro.caratula || ''} 
+                                    src={localServerOnline ? (libro.caratula || '') : (libro.caratula_url || libro.caratula || '')} 
                                     alt={`Carátula de ${libro.titulo}`} 
                                     className="object-cover w-full h-full"
-                                    onError={(e) => {
-                                        const img = e.target as HTMLImageElement;
-                                        if (libro.caratula_url && img.src !== libro.caratula_url) {
-                                            img.src = libro.caratula_url;
-                                        }
-                                    }}
                                 />
                             </div>
                         ) : (
