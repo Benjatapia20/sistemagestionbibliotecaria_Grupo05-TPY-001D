@@ -31,8 +31,7 @@ services:
     restart: always
     ports:
       - "8080:8080"
-      
-      
+
   upload-api:
     build: ./upload-api
     container_name: biblio-upload-api
@@ -41,4 +40,3 @@ services:
       - "3001:3001"
     volumes:
       - ./caratulas:/app/caratulas
-
