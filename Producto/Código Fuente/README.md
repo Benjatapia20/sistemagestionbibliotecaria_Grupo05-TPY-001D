@@ -1,51 +1,103 @@
-# Sistema de Gestión Bibliotecaria Resiliente
+# 📚 Sistema de Gestión Bibliotecaria Resiliente (Guía de Instalación en Windows)
 
-Este es un proyecto en fase de **desarrollo activo**. Se trata de un sistema moderno para la gestión de bibliotecas con un enfoque principal en la **resiliencia**.
+Este sistema está diseñado para funcionar tanto en la nube (Supabase) como de forma local (Docker), garantizando que la biblioteca nunca deje de operar aunque se caiga el internet.
 
-El objetivo de este sistema es garantizar la continuidad operativa completa: si la conexión a internet falla, el sistema seguirá funcionando localmente sin interrupciones, sincronizando los datos una vez que se restablezca la conexión.
+## 🛠️ Requisitos Previos
 
-## 🚀 Tecnologías Utilizadas
+Antes de empezar, debes instalar las siguientes herramientas en Windows:
 
-### Frontend
-- **React 19:** Biblioteca principal para la construcción de interfaces de usuario.
-- **TypeScript:** Para un tipado estricto y un código más seguro.
-- **Vite:** Herramienta de construcción y entorno de desarrollo de alta velocidad.
-- **Tailwind CSS v4:** Framework de CSS basado en utilidades para un diseño rápido, responsivo y moderno.
-- **Lucide React:** Colección de iconos limpios y consistentes.
-- **PWA (Progressive Web App):** Configurado a través de `vite-plugin-pwa` para permitir la instalación de la app y el soporte offline en el cliente.
+1.  **Node.js (Versión 18 o superior)**: [Descargar aquí](https://nodejs.org/)
+2.  **Docker Desktop**: [Descargar aquí](https://www.docker.com/products/docker-desktop/) (Asegúrate de que esté abierto y corriendo).
 
-### Backend y Base de Datos
-- **Supabase:** Plataforma Backend-as-a-Service (BaaS) utilizada como base de datos principal en la nube y para la gestión de autenticación.
-- **PostgreSQL (Local / Docker):** Se utilizará un servidor de PostgreSQL levantado mediante contenedores de Docker para garantizar la persistencia de datos y el funcionamiento del sistema en redes locales cuando no haya conexión a internet.
+---
 
-## 🏗️ Estado Actual del Proyecto
+## 🚀 Pasos para la Instalación
 
-El proyecto se encuentra en sus etapas iniciales de desarrollo. Hasta la fecha, se han implementado las siguientes características principales de infraestructura y UI:
-
-- Configuración inicial del stack (React + TypeScript + Vite + Tailwind).
-- Integración del cliente de Supabase.
-- Creación de un sistema de autenticación de base.
-- Implementación del soporte para modo Oscuro/Claro.
-- Maquetado base del Panel de Control (Dashboard), que actualmente incluye marcadores para estadísticas en tiempo real (Libros disponibles, Préstamos activos) y un indicador de estado de conexión (Online/Offline).
-
-**Próximas fases de desarrollo:**
-1. Configuración de la base de datos local en Docker (PostgreSQL).
-2. Lógica de sincronización bidireccional entre Supabase en la nube y la base de datos local.
-3. Desarrollo de los módulos del catálogo de libros (CRUD).
-4. Desarrollo de la lógica de préstamos y devoluciones.
-
-## 💻 Desarrollo
-
-Para levantar este proyecto de manera local, asegúrate de tener instaladas las dependencias:
+### 1. Clonar el proyecto e instalar dependencias
+Abre una terminal (PowerShell o CMD) en la carpeta donde quieras el proyecto:
 
 ```bash
-npm install
+# Entrar a la carpeta del código fuente
+cd "Producto/Código Fuente"
+
+# Instalar dependencias (Usamos --force por compatibilidad de versiones)
+npm install --force
 ```
 
-Luego, puedes inicializar el servidor de desarrollo en la dirección local:
+### 2. Levantar el Servidor Local (Docker)
+El sistema necesita una base de datos y un servidor de imágenes local.
+1.  Abre otra terminal y navega a: `Producto/Base de Datos/biblio-server`
+2.  Ejecuta el siguiente comando para levantar los contenedores:
+    ```bash
+    docker compose up -d
+    ```
+    *Esto activará Postgres (DB), PostgREST (API), Adminer (Gestión) e Imágenes.*
 
+### 3. Configurar la Base de Datos
+Una vez que Docker esté corriendo:
+1.  Entra a **Adminer** desde tu navegador: `http://localhost:8080`
+2.  Loguéate con estos datos:
+    *   **Sistema**: PostgreSQL
+    *   **Servidor**: `db`
+    *   **Usuario**: `admin`
+    *   **Contraseña**: `pwa_password`
+    *   **Base de Datos**: `biblioteca`
+3.  Haz clic en **"Comando SQL"** y pega el siguiente código para crear la tabla y dar permisos:
+
+```sql
+-- 1. Crear el rol web_anon si no existe
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'web_anon') THEN
+    CREATE ROLE web_anon NOLOGIN;
+  END IF;
+END
+$$;
+
+GRANT USAGE ON SCHEMA public TO web_anon;
+
+-- 2. Crear Tabla de Libros
+CREATE TABLE IF NOT EXISTS libros (
+    id SERIAL PRIMARY KEY,
+    titulo TEXT NOT NULL,
+    autor TEXT,
+    isbn TEXT,
+    genero TEXT,
+    stock INTEGER DEFAULT 0,
+    caratula TEXT,        -- Guarda rutas relativas (/caratulas/...)
+    caratula_url TEXT     -- Guarda URLs de Supabase
+);
+
+-- 3. Dar Permisos
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE libros TO web_anon;
+GRANT USAGE, SELECT ON SEQUENCE libros_id_seq TO web_anon;
+```
+
+### 4. Configurar Variables de Entorno (.env)
+En la carpeta `Producto/Código Fuente`, crea un archivo `.env` con el siguiente contenido:
+
+```env
+VITE_SUPABASE_URL=tu_url_de_supabase
+VITE_SUPABASE_ANON_KEY=tu_llave_anon_de_supabase
+
+# Configuración Local (Si entras desde otro PC, usa tu IP en lugar de localhost)
+VITE_LOCAL_API_URL=http://localhost:3000
+VITE_IMAGES_URL=http://localhost:3001
+```
+
+---
+
+## 💻 Ejecución
+
+Para iniciar el sistema en modo desarrollo:
 ```bash
 npm run dev
 ```
+El sistema será accesible en `http://localhost:5173`.
 
-*(Nota: Posteriormente se requerirán comandos adicionales para desplegar el contenedor de Docker con la BD local).*
+---
+
+## 📱 Instalación como App (PWA)
+Para que aparezca el botón "Instalar" en el navegador:
+1.  Debes acceder a través de `localhost` o usar una conexión **HTTPS**.
+2.  Si accedes por la IP desde otro computador o móvil, el navegador podría no mostrar el botón de instalar por políticas de seguridad (requiere HTTPS), pero el sistema será funcional desde el navegador.
