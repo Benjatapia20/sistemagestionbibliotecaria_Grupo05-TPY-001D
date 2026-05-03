@@ -3,14 +3,15 @@ import { LayoutDashboard, Library, Settings } from "lucide-react";
 interface BottomNavProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  userRole: 'admin' | 'usuario';
 }
 
-export const BottomNav = ({ activeTab, setActiveTab }: BottomNavProps) => {
+export const BottomNav = ({ activeTab, setActiveTab, userRole }: BottomNavProps) => {
   const menuItems = [
-    { id: "dashboard", label: "Panel", icon: LayoutDashboard },
-    { id: "catalogo", label: "Catálogo", icon: Library },
-    { id: "config", label: "Ajustes", icon: Settings },
-  ];
+    { id: "dashboard", label: "Panel", icon: LayoutDashboard, adminOnly: true },
+    { id: "catalogo", label: "Catálogo", icon: Library, adminOnly: false },
+    { id: "config", label: "Ajustes", icon: Settings, adminOnly: false },
+  ].filter(item => !item.adminOnly || userRole === 'admin');
 
   const activeIndex = menuItems.findIndex(item => item.id === activeTab);
 
