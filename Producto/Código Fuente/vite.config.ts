@@ -8,6 +8,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      devOptions: {
+        enabled: false
+      },
       manifest: {
         name: 'Sistema de Gestión Bibliotecaria Resiliente',
         short_name: 'Biblioteca Resiliente',
