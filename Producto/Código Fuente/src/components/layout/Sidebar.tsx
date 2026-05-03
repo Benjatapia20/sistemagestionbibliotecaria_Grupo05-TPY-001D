@@ -4,16 +4,17 @@ import { BookOpen, LayoutDashboard, Library, ChevronLeft, ChevronRight, Settings
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  userRole: 'admin' | 'usuario';
 }
 
-export const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
+export const Sidebar = ({ activeTab, setActiveTab, userRole }: SidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const menuItems = [
-    { id: 'dashboard', label: 'Panel', icon: LayoutDashboard },
-    { id: 'catalogo', label: 'Catálogo', icon: Library },
-    { id: 'config', label: 'Ajustes', icon: Settings },
-  ];
+    { id: 'dashboard', label: 'Panel', icon: LayoutDashboard, adminOnly: true },
+    { id: 'catalogo', label: 'Catálogo', icon: Library, adminOnly: false },
+    { id: 'config', label: 'Ajustes', icon: Settings, adminOnly: false },
+  ].filter(item => !item.adminOnly || userRole === 'admin');
 
   return (
     <aside className={`hidden md:flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'} min-h-screen relative`}>
