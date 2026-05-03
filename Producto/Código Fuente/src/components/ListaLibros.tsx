@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useConfig } from '../hooks/useConfig';
 
 interface Libro {
     id: number;
@@ -19,27 +20,30 @@ interface Props {
 export const ListaLibros = ({ onDataLoaded }: Props) => {
     const [libros, setLibros] = useState<Libro[]>([]);
     const [loading, setLoading] = useState(true);
-    const [localServerOnline, setLocalServerOnline] = useState<boolean | null>(null);
+    const { useLocal } = useConfig();
 
     const cargarLibros = async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        setLoading(true);
+        if (useLocal) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-        try {
-            const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL}/libros`, {
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            if (!response.ok) throw new Error("Servidor local no disponible");
-            const data = await response.json();
-            setLibros(data);
-            setLocalServerOnline(true);
-            if (onDataLoaded) {
-                onDataLoaded(data.length);
+            try {
+                const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL}/libros`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                if (!response.ok) throw new Error("Servidor local no disponible");
+                const data = await response.json();
+                setLibros(data);
+                if (onDataLoaded) onDataLoaded(data.length);
+            } catch (error) {
+                console.error("Error al cargar desde servidor local:", error);
+                setLibros([]);
+            } finally {
+                setLoading(false);
             }
-        } catch (error) {
-            console.warn("Servidor local no disponible, cargando desde Supabase...", error);
-            setLocalServerOnline(false);
+        } else {
             try {
                 const { data: supabaseData, error: supabaseError } = await supabase
                     .from('libros')
@@ -47,25 +51,32 @@ export const ListaLibros = ({ onDataLoaded }: Props) => {
                     .order('id', { ascending: false });
 
                 if (supabaseError) throw supabaseError;
-
-                let dataToSet = supabaseData || [];
-
+                const dataToSet = supabaseData || [];
                 setLibros(dataToSet);
                 if (onDataLoaded) onDataLoaded(dataToSet.length);
-            } catch (fallbackError) {
-                console.error("No se pudo conectar a ninguna base de datos:", fallbackError);
+            } catch (error) {
+                console.error("Error al cargar desde Supabase:", error);
+            } finally {
+                setLoading(false);
             }
-        } finally {
-            setLoading(false);
         }
     };
 
     useEffect(() => {
         cargarLibros();
-    }, []);
+    }, [useLocal]);
 
     const getImagenSrc = (libro: Libro) => {
-        return localServerOnline ? (libro.caratula || '') : (libro.caratula_url || libro.caratula || '');
+        const imagesBaseUrl = import.meta.env.VITE_IMAGES_URL || `http://${window.location.hostname}:3001`;
+        const path = useLocal ? (libro.caratula || '') : (libro.caratula_url || libro.caratula || '');
+        
+        if (!path) return '';
+        
+        // Si el path ya es una URL completa (http...), la devolvemos tal cual
+        if (path.startsWith('http')) return path;
+        
+        // Si es una ruta relativa (/caratulas/...), le pegamos la URL base dinámica
+        return `${imagesBaseUrl}${path}`;
     };
 
     if (loading) return (
@@ -85,15 +96,15 @@ export const ListaLibros = ({ onDataLoaded }: Props) => {
             {/* Grid de portadas estilo Netflix */}
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-4">
                 {libros.map((libro) => (
-                    <div 
-                        key={libro.id} 
+                    <div
+                        key={libro.id}
                         className="group cursor-pointer"
                     >
                         {/* Portada */}
-                        <div className="relative aspect-[2/3] rounded-md overflow-hidden bg-slate-200 dark:bg-slate-800">
+                        <div className="relative aspect-2/3 rounded-md overflow-hidden bg-slate-200 dark:bg-slate-800">
                             {getImagenSrc(libro) ? (
-                                <img 
-                                    src={getImagenSrc(libro)} 
+                                <img
+                                    src={getImagenSrc(libro)}
                                     alt={libro.titulo}
                                     className="w-full h-full object-cover"
                                 />
@@ -102,7 +113,7 @@ export const ListaLibros = ({ onDataLoaded }: Props) => {
                                     <span className="text-3xl">📚</span>
                                 </div>
                             )}
-                            
+
                             {/* Info overlay */}
                             <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3">
                                 <h3 className="text-white font-bold text-sm leading-tight line-clamp-2">

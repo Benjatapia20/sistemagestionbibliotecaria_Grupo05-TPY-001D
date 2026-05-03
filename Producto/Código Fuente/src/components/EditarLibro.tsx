@@ -32,33 +32,23 @@ export const EditarLibro = ({ libro, onGuardado, onCancel }: Props) => {
         e.preventDefault();
         setLoading(true);
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-
         try {
-            console.log('Editando libro en:', `${import.meta.env.VITE_LOCAL_API_URL}/libros?id=eq.${libro.id}`);
-
+            // La edición siempre es local
             const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL}/libros?id=eq.${libro.id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
                     'Prefer': 'return=representation'
                 },
-                body: JSON.stringify(datos),
-                signal: controller.signal
+                body: JSON.stringify(datos)
             });
-            clearTimeout(timeoutId);
 
-            console.log('Response status:', response.status);
+            if (!response.ok) throw new Error("Error en servidor local");
 
-            if (response.ok) {
-                onGuardado();
-            } else {
-                throw new Error("Servidor local rechazó la petición");
-            }
+            onGuardado();
         } catch (error) {
-            console.error("Error:", error);
-            alert("No se pudo conectar al servidor local. Verifica que estés conectado a la red local.");
+            console.error("Error al editar localmente:", error);
+            alert("No se pudo conectar al servidor local para guardar los cambios.");
         } finally {
             setLoading(false);
         }

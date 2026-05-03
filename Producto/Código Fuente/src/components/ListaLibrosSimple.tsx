@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Edit2 } from 'lucide-react';
+import { useConfig } from '../hooks/useConfig';
 
 interface Libro {
     id: number;
@@ -20,21 +21,29 @@ interface Props {
 export const ListaLibrosSimple = ({ onEditar }: Props) => {
     const [libros, setLibros] = useState<Libro[]>([]);
     const [loading, setLoading] = useState(true);
+    const { useLocal } = useConfig();
 
     const cargarLibros = async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        setLoading(true);
+        if (useLocal) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-        try {
-            const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL}/libros`, {
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            if (!response.ok) throw new Error("Servidor local no disponible");
-            const data = await response.json();
-            setLibros(data);
-        } catch (error) {
-            console.warn("Servidor local no disponible, cargando desde Supabase...", error);
+            try {
+                const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL}/libros`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                if (!response.ok) throw new Error("Servidor local no disponible");
+                const data = await response.json();
+                setLibros(data);
+            } catch (error) {
+                console.error("Error local:", error);
+                setLibros([]);
+            } finally {
+                setLoading(false);
+            }
+        } else {
             try {
                 const { data: supabaseData, error: supabaseError } = await supabase
                     .from('libros')
@@ -43,17 +52,17 @@ export const ListaLibrosSimple = ({ onEditar }: Props) => {
 
                 if (supabaseError) throw supabaseError;
                 setLibros(supabaseData || []);
-            } catch (fallbackError) {
-                console.error("No se pudo conectar a ninguna base de datos:", fallbackError);
+            } catch (error) {
+                console.error("Error Supabase:", error);
+            } finally {
+                setLoading(false);
             }
-        } finally {
-            setLoading(false);
         }
     };
 
     useEffect(() => {
         cargarLibros();
-    }, []);
+    }, [useLocal]);
 
     if (loading) return <div className="p-4 text-center dark:text-white">Cargando...</div>;
 
