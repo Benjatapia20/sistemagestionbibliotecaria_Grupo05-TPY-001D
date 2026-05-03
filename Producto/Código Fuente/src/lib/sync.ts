@@ -1,31 +1,37 @@
 import { supabase } from './supabase';
 
-const syncCaratulaToSupabase = async (caratulaLocalUrl: string, isbn: string): Promise<string | null> => {
+const syncCaratulaToSupabase = async (caratulaLocalPath: string): Promise<string | null> => {
     try {
+        const fileName = caratulaLocalPath.split('/').pop();
+        if (!fileName) return null;
+
+        const imagesBaseUrl = import.meta.env.VITE_IMAGES_URL || `http://${window.location.hostname}:3001`;
+        const fullLocalUrl = caratulaLocalPath.startsWith('http') ? caratulaLocalPath : `${imagesBaseUrl}${caratulaLocalPath}`;
+
+        console.log(`[Storage] Intentando descargar desde: ${fullLocalUrl}`);
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-        const response = await fetch(caratulaLocalUrl, { signal: controller.signal });
+        const response = await fetch(fullLocalUrl, { signal: controller.signal });
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-            console.warn("No se pudo descargar la imagen local para subir a Supabase");
+            console.error(`[Storage] No se pudo descargar la imagen local: ${fullLocalUrl}`);
             return null;
         }
 
         const blob = await response.blob();
-        const fileName = `${isbn || 'sin-isbn'}-${Date.now()}.jpg`;
 
         const { error: uploadError } = await supabase
             .storage
             .from('caratulas')
             .upload(fileName, blob, {
                 contentType: 'image/jpeg',
-                upsert: false
+                upsert: true
             });
 
         if (uploadError) {
-            console.warn("Error subiendo imagen a Supabase:", uploadError);
+            console.error("[Storage] Error en upload:", uploadError);
             return null;
         }
 
@@ -36,7 +42,7 @@ const syncCaratulaToSupabase = async (caratulaLocalUrl: string, isbn: string): P
 
         return publicUrl;
     } catch (error) {
-        console.warn("Error sincronizando carátula a Supabase:", error);
+        console.warn("[Storage] Error crítico:", error);
         return null;
     }
 };
@@ -46,7 +52,6 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
         let librosParaSincronizar: any[] = [];
         let servidorLocalDisponible = false;
 
-        // 1. Obtener libros del servidor local (Docker) si está online
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000);
@@ -54,60 +59,58 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
             clearTimeout(timeoutId);
 
             if (resLocal.ok) {
-                const librosLocales = await resLocal.json();
-                librosParaSincronizar = [...librosLocales];
+                librosParaSincronizar = await resLocal.json();
                 servidorLocalDisponible = true;
-                console.log('✅ Servidor local disponible, sincronizando...');
             }
         } catch (e) {
-            console.warn('⚠️ Servidor local no disponible durante sincronización');
+            console.warn('⚠️ Servidor local offline');
         }
 
-        // Si el servidor local no está disponible, no sincronizamos
-        if (!servidorLocalDisponible) {
-            console.warn('Sincronización cancelada: servidor local no disponible');
-            return { success: false, message: 'Servidor local no disponible. Conéctese a la red local para sincronizar.' };
-        }
+        if (!servidorLocalDisponible) return { success: false, message: 'Servidor local no disponible.' };
+        if (librosParaSincronizar.length === 0) return { success: true, message: 'Nada que sincronizar.' };
 
-        if (librosParaSincronizar.length === 0) {
-            return { success: true, message: 'No hay libros para sincronizar' };
-        }
-
-        console.log('📚 Libros a sincronizar:', librosParaSincronizar.length);
-
-        // 3. Por cada libro, sincronizar carátula a Supabase si existe y no tiene URL de Supabase
-        const librosConCaratulaUrl = await Promise.all(
+        const librosActualizados = await Promise.all(
             librosParaSincronizar.map(async (libro) => {
                 let caratulaUrl = libro.caratula_url || null;
+                const pathCaratula = libro.caratula || '';
+                const nombreArchivoLocal = pathCaratula.split('/').pop();
 
-                // Solo subir carátula si no tiene URL de Supabase
-                if (libro.caratula && !caratulaUrl && libro.caratula.startsWith('http')) {
-                    caratulaUrl = await syncCaratulaToSupabase(libro.caratula, libro.isbn);
+                if (!pathCaratula) return { ...libro, caratula_url: caratulaUrl };
+
+                const yaEstaEnSupabase = caratulaUrl && nombreArchivoLocal && caratulaUrl.includes(nombreArchivoLocal);
+
+                const esRutaLocal = !pathCaratula.startsWith('http') || pathCaratula.includes('192.168.');
+                const necesitaSubir = esRutaLocal && !yaEstaEnSupabase;
+
+                if (necesitaSubir) {
+                    console.log(`🚀 Sincronizando carátula de "${libro.titulo}"`);
+                    const nuevaUrl = await syncCaratulaToSupabase(pathCaratula);
+                    if (nuevaUrl) caratulaUrl = nuevaUrl;
                 }
 
-                return {
-                    titulo: libro.titulo,
-                    autor: libro.autor,
-                    isbn: libro.isbn,
-                    stock: libro.stock,
-                    genero: libro.genero,
-                    caratula: libro.caratula,
-                    caratula_url: caratulaUrl
-                };
+                return { ...libro, caratula_url: caratulaUrl };
             })
         );
 
-        // 4. Subir todos los libros a Supabase
-        const { error } = await supabase
+        const { error: errorSupabase } = await supabase
             .from('libros')
-            .upsert(librosConCaratulaUrl, { onConflict: 'isbn' });
+            .upsert(librosActualizados, { onConflict: 'id' });
 
-        if (error) throw error;
+        if (errorSupabase) throw errorSupabase;
 
-        console.log('✅ Sincronización con la nube exitosa');
+        for (const libro of librosActualizados) {
+            try {
+                await fetch(`${import.meta.env.VITE_LOCAL_API_URL}/libros?id=eq.${libro.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ caratula_url: libro.caratula_url })
+                });
+            } catch (e) { }
+        }
+
         return { success: true, message: 'Sincronización exitosa' };
     } catch (err) {
-        console.error('❌ Falló la sincronización:', err);
-        return { success: false, message: 'Error al sincronizar con la nube' };
+        console.error('❌ Error:', err);
+        return { success: false, message: 'Error al sincronizar' };
     }
 };
