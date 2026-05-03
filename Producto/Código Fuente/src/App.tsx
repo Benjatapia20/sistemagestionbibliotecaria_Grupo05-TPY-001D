@@ -8,6 +8,7 @@ import { ListaLibrosSimple } from "./components/ListaLibrosSimple";
 import { AgregarLibro } from "./components/AgregarLibro";
 import { EditarLibro } from "./components/EditarLibro";
 import { sincronizarConNube } from "./lib/sync";
+import { VerificarCuenta } from "./components/VerificarCuenta";
 import {
   Sun,
   Moon,
@@ -38,6 +39,9 @@ interface Libro {
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [userRole, setUserRole] = useState<'admin' | 'usuario'>(() => {
+    return (localStorage.getItem("biblio_role") as 'admin' | 'usuario') || 'usuario';
+  });
   const { isDark, toggleTheme } = useDarkMode();
   const [refreshKey, setRefreshKey] = useState(0);
   const [totalLibros, setTotalLibros] = useState(0);
@@ -83,21 +87,68 @@ function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem("biblio_role"); 
+    localStorage.removeItem("biblio_temp_session"); // Limpiar sesión temporal
     setActiveTab("dashboard");
     localStorage.setItem("biblio_activeTab", "dashboard");
+    window.location.reload();
+  };
+
+  const fetchUserRole = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('rol')
+        .eq('id', userId)
+        .single();
+      
+      if (data && !error) {
+        setUserRole(data.rol);
+        localStorage.setItem("biblio_role", data.rol);
+      }
+    } catch (err) {
+      console.error("Error fetching role:", err);
+    }
   };
 
   useEffect(() => {
+    // 1. Escuchar cambios de Supabase
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setCheckingAuth(false);
+      if (session) {
+        setSession(session);
+        fetchUserRole(session.user.id);
+        setCheckingAuth(false);
+      } else {
+        // Si no hay sesión de Supabase, buscamos la temporal
+        const tempSession = localStorage.getItem("biblio_temp_session");
+        if (tempSession) {
+          const parsed = JSON.parse(tempSession);
+          setSession(parsed as any);
+          setUserRole(parsed.role);
+        } else {
+          setSession(null);
+        }
+        setCheckingAuth(false);
+      }
     });
 
+    // 2. Verificar sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setCheckingAuth(false);
+      if (session) {
+        setSession(session);
+        fetchUserRole(session.user.id);
+        setCheckingAuth(false);
+      } else {
+        const tempSession = localStorage.getItem("biblio_temp_session");
+        if (tempSession) {
+          const parsed = JSON.parse(tempSession);
+          setSession(parsed as any);
+          setUserRole(parsed.role);
+        }
+        setCheckingAuth(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -118,7 +169,7 @@ function App() {
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-50 overflow-hidden transition-colors duration-300">
       {/* Sidebar para Escritorio */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole} />
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Contenido Principal */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-24 md:pb-8">
@@ -138,25 +189,27 @@ function App() {
                     {useLocal ? "Local" : "Supabase"}
                   </div>
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={handleSync}
-                    disabled={syncing}
-                    className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold w-full sm:w-auto justify-center"
-                  >
-                    <RefreshCw
-                      className={`w-5 h-5 ${syncing ? "animate-spin" : ""}`}
-                    />
-                    {syncing ? "Sincronizando..." : "Sincronizar"}
-                  </button>
-                  <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold shadow-sm w-full sm:w-auto justify-center"
-                  >
-                    <PlusCircle className="w-5 h-5" />
-                    Nuevo Libro
-                  </button>
-                </div>
+                {userRole === 'admin' && (
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <button
+                      onClick={handleSync}
+                      disabled={syncing}
+                      className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold w-full sm:w-auto justify-center"
+                    >
+                      <RefreshCw
+                        className={`w-5 h-5 ${syncing ? "animate-spin" : ""}`}
+                      />
+                      {syncing ? "Sincronizando..." : "Sincronizar"}
+                    </button>
+                    <button
+                      onClick={() => setIsAddModalOpen(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold shadow-sm w-full sm:w-auto justify-center"
+                    >
+                      <PlusCircle className="w-5 h-5" />
+                      Nuevo Libro
+                    </button>
+                  </div>
+                )}
               </div>
               {/* Estado de sincronización */}
               {syncStatus && (
@@ -228,6 +281,15 @@ function App() {
                 Ajustes del Sistema
               </h1>
 
+              {/* SECCIÓN DE VERIFICACIÓN (Solo para usuarios temporales) */}
+              {(session?.user as any)?.isTemp && (
+                <VerificarCuenta 
+                  username={session?.user?.email?.split('@')[0] || ''} 
+                  currentRole={userRole}
+                  onVerified={() => window.location.reload()}
+                />
+              )}
+
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-slate-200 dark:divide-slate-800">
                 {/* Perfil */}
                 <div className="p-6 flex items-center justify-between">
@@ -271,29 +333,31 @@ function App() {
                   </button>
                 </div>
 
-                {/* Base de Datos Local Toggle */}
-                <div className="p-6 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-white">
-                      Servidor de Datos
-                    </h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Usar base de datos local (Docker) o la nube
-                    </p>
-                  </div>
-                  <button
-                    onClick={toggleUseLocal}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                      useLocal ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        useLocal ? 'translate-x-6' : 'translate-x-1'
+                {/* Base de Datos Local Toggle - SOLO ADMIN */}
+                {userRole === 'admin' && (
+                  <div className="p-6 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-slate-900 dark:text-white">
+                        Servidor de Datos
+                      </h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Usar base de datos local (Docker) o la nube
+                      </p>
+                    </div>
+                    <button
+                      onClick={toggleUseLocal}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        useLocal ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
                       }`}
-                    />
-                  </button>
-                </div>
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          useLocal ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                )}
 
                 {/* Cerrar Sesión */}
                 <div className="p-6">
@@ -340,7 +404,7 @@ function App() {
           </div>
         )}
         {/* BottomNav para Móviles */}
-        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole} />
       </div>
     </div>
   );
