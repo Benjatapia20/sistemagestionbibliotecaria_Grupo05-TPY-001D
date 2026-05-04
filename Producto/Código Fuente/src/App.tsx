@@ -87,7 +87,7 @@ function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem("biblio_role"); 
+    localStorage.removeItem("biblio_role");
     localStorage.removeItem("biblio_temp_session"); // Limpiar sesión temporal
     setActiveTab("dashboard");
     localStorage.setItem("biblio_activeTab", "dashboard");
@@ -101,7 +101,7 @@ function App() {
         .select('rol')
         .eq('id', userId)
         .single();
-      
+
       if (data && !error) {
         setUserRole(data.rol);
         localStorage.setItem("biblio_role", data.rol);
@@ -180,11 +180,10 @@ function App() {
                   <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
                     Panel de Control
                   </h1>
-                  <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
-                    useLocal 
-                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" 
+                  <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${useLocal
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                       : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                  }`}>
+                    }`}>
                     {useLocal ? <Server className="w-3 h-3" /> : <Database className="w-3 h-3" />}
                     {useLocal ? "Local" : "Supabase"}
                   </div>
@@ -283,8 +282,8 @@ function App() {
 
               {/* SECCIÓN DE VERIFICACIÓN (Solo para usuarios temporales) */}
               {(session?.user as any)?.isTemp && (
-                <VerificarCuenta 
-                  username={session?.user?.email?.split('@')[0] || ''} 
+                <VerificarCuenta
+                  username={session?.user?.email?.split('@')[0] || ''}
                   currentRole={userRole}
                   onVerified={() => window.location.reload()}
                 />
@@ -333,31 +332,26 @@ function App() {
                   </button>
                 </div>
 
-                {/* Base de Datos Local Toggle - SOLO ADMIN */}
-                {userRole === 'admin' && (
-                  <div className="p-6 flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-slate-900 dark:text-white">
-                        Servidor de Datos
-                      </h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Usar base de datos local (Docker) o la nube
-                      </p>
-                    </div>
-                    <button
-                      onClick={toggleUseLocal}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        useLocal ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          useLocal ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
+                <div className="p-6 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white">
+                      Servidor de Datos
+                    </h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      Usar base de datos local (Docker) o la nube
+                    </p>
                   </div>
-                )}
+                  <button
+                    onClick={toggleUseLocal}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${useLocal ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                      }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${useLocal ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                    />
+                  </button>
+                </div>
 
                 {/* Cerrar Sesión */}
                 <div className="p-6">

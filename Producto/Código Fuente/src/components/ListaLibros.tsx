@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useConfig } from '../hooks/useConfig';
-import { Loader2, Search, Filter, Book, ChevronRight } from 'lucide-react';
+import { Loader2, Search, Book, ChevronRight } from 'lucide-react';
 import { DetalleLibro } from './DetalleLibro';
 
 interface Libro {
@@ -25,6 +25,93 @@ interface Libro {
 interface Props {
     onDataLoaded?: (total: number) => void;
 }
+
+const MobileBottomSheet = ({ isOpen, onClose, children }: { isOpen: boolean, onClose: () => void, children: React.ReactNode }) => {
+  const [offset, setOffset] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const startY = React.useRef(0);
+  const isDragging = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      setOffset(0);
+      setIsExpanded(false);
+    }
+  }, [isOpen]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY;
+    isDragging.current = true;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+    const currentY = e.touches[0].clientY;
+    const deltaY = currentY - startY.current;
+
+    if (isExpanded) {
+      if (deltaY > 0) setOffset(deltaY);
+    } else {
+      if (deltaY < 0) {
+        setOffset(deltaY);
+        if (deltaY < -50) {
+          setIsExpanded(true);
+          setOffset(0);
+          isDragging.current = false;
+        }
+      } else {
+        setOffset(deltaY);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isDragging.current = false;
+    if (isExpanded) {
+      if (offset > 150) {
+        setIsExpanded(false);
+        setOffset(0);
+      } else {
+        setOffset(0);
+      }
+    } else {
+      if (offset > 100) {
+        onClose();
+      } else {
+        setOffset(0);
+      }
+    }
+  };
+
+  return (
+    <>
+      <div 
+        className={`md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={onClose}
+      />
+      <div 
+        className={`md:hidden fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-slate-950 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden pb-24`}
+        style={{ 
+          height: isExpanded ? '92vh' : '65vh',
+          transform: isOpen ? `translateY(${offset}px)` : 'translateY(100%)',
+          transition: isDragging.current ? 'none' : 'transform 0.3s ease-out, height 0.3s ease-out'
+        }}
+      >
+        <div 
+          className="w-full flex justify-center p-4 cursor-grab active:cursor-grabbing shrink-0 bg-white dark:bg-slate-950 z-10"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+        </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+            {children}
+        </div>
+      </div>
+    </>
+  );
+};
 
 export const ListaLibros = ({ onDataLoaded }: Props) => {
     const [libros, setLibros] = useState<Libro[]>([]);
@@ -207,8 +294,17 @@ export const ListaLibros = ({ onDataLoaded }: Props) => {
         </div>
       </div>
 
-      {/* Lado Derecho: Detalle del Libro */}
-      <div className={`border-slate-200 dark:border-slate-800 shadow-2xl z-10 bg-white dark:bg-slate-950 transition-all duration-500 ease-in-out overflow-hidden shrink-0 ${
+      {/* Mobile Bottom Sheet (Solo en pantallas pequeñas) */}
+      <MobileBottomSheet isOpen={!!selectedLibro} onClose={() => setSelectedLibro(null)}>
+        <DetalleLibro 
+            libro={selectedLibro} 
+            onClose={() => setSelectedLibro(null)} 
+            getImagenSrc={(p, u) => getImagenSrc(p, u)}
+        />
+      </MobileBottomSheet>
+
+      {/* Lado Derecho: Sidebar de Escritorio (Solo en md o superior) */}
+      <div className={`hidden md:block border-slate-200 dark:border-slate-800 shadow-2xl z-10 bg-white dark:bg-slate-950 transition-all duration-500 ease-in-out overflow-hidden shrink-0 ${
         selectedLibro 
           ? "w-[320px] lg:w-[400px] border-l opacity-100" 
           : "w-0 border-l-0 opacity-0"

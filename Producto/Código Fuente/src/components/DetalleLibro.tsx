@@ -7,7 +7,8 @@ interface Libro {
   autor: string;
   isbn: string;
   stock: number;
-  genero: string;
+  genero?: string;
+  caratula?: string;
   caratula_url?: string;
   // Campos extendidos
   editorial?: string;
@@ -28,7 +29,7 @@ export const DetalleLibro = ({ libro, onClose, getImagenSrc }: DetalleLibroProps
   if (!libro) return null;
 
   return (
-    <div className="h-full w-full min-w-[320px] lg:min-w-[400px] bg-white dark:bg-slate-950 flex flex-col border-l border-slate-100 dark:border-slate-800">
+    <div className="h-full w-full bg-white dark:bg-slate-950 flex flex-col border-l border-slate-100 dark:border-slate-800">
       {/* Cabecera con Imagen */}
       <div className="relative h-64 shrink-0 overflow-hidden">
         <img 
@@ -103,7 +104,7 @@ export const DetalleLibro = ({ libro, onClose, getImagenSrc }: DetalleLibroProps
 const InfoItem = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) => (
   <div className="flex items-start gap-3">
     <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg">
-      {React.cloneElement(icon as React.ReactElement, { className: 'w-4 h-4' })}
+      {React.cloneElement(icon as React.ReactElement<{className?: string}>, { className: 'w-4 h-4' })}
     </div>
     <div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
@@ -115,7 +116,7 @@ const InfoItem = ({ icon, label, value }: { icon: React.ReactNode, label: string
 const TechnicalDetail = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) => (
   <div className="flex items-center gap-2">
     <span className="text-slate-400">
-      {React.cloneElement(icon as React.ReactElement, { className: 'w-3.5 h-3.5' })}
+      {React.cloneElement(icon as React.ReactElement<{className?: string}>, { className: 'w-3.5 h-3.5' })}
     </span>
     <span className="text-xs text-slate-500 dark:text-slate-400">{label}:</span>
     <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{value}</span>
