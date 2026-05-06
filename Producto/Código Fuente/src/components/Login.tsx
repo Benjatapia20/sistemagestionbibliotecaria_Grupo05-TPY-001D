@@ -21,9 +21,9 @@ export default function Login() {
             if (mode === 'login') {
                 if (isEmail) {
                     // LOGIN OFICIAL (SUPABASE)
-                    const { error } = await supabase.auth.signInWithPassword({ 
-                        email: identifier, 
-                        password 
+                    const { error } = await supabase.auth.signInWithPassword({
+                        email: identifier,
+                        password
                     });
                     if (error) throw error;
                 } else {
@@ -63,9 +63,9 @@ export default function Login() {
                 // REGISTRO
                 if (isEmail) {
                     // REGISTRO OFICIAL
-                    const { error } = await supabase.auth.signUp({ 
-                        email: identifier, 
-                        password 
+                    const { error } = await supabase.auth.signUp({
+                        email: identifier,
+                        password
                     });
                     if (error) throw error;
                     alert('¡Registro exitoso! Revisa tu correo.');
@@ -83,9 +83,9 @@ export default function Login() {
                     const localApi = import.meta.env.VITE_LOCAL_API_URL;
                     const response = await fetch(`${localApi}/cuentas_temporales`, {
                         method: 'POST',
-                        headers: { 
+                        headers: {
                             'Content-Type': 'application/json',
-                            'Prefer': 'return=minimal' 
+                            'Prefer': 'return=minimal'
                         },
                         body: JSON.stringify(newUser)
                     });
@@ -118,8 +118,8 @@ export default function Login() {
                         {mode === 'login' ? 'Bienvenido' : 'Nueva Cuenta'}
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 transition-colors text-center text-sm mt-1">
-                        {mode === 'login' 
-                            ? 'Usa tu correo o nombre de usuario local' 
+                        {mode === 'login'
+                            ? 'Usa tu correo o nombre de usuario local'
                             : 'Puedes usar un nombre de usuario para trabajar sin internet'}
                     </p>
                 </div>
@@ -171,9 +171,9 @@ export default function Login() {
                     </button>
 
                     <div className="relative flex items-center py-2">
-                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                        <span className="flex-shrink mx-4 text-slate-400 text-xs">O</span>
-                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                        <div className="grow border-t border-slate-200 dark:border-slate-800"></div>
+                        <span className="shrink mx-4 text-slate-400 text-xs">O</span>
+                        <div className="grow border-t border-slate-200 dark:border-slate-800"></div>
                     </div>
 
                     <button

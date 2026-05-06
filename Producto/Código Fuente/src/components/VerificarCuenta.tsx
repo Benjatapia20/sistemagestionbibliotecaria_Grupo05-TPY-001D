@@ -36,7 +36,7 @@ export const VerificarCuenta = ({ username, currentRole, onVerified }: Verificar
                 // 2. Vincular la cuenta temporal con el nuevo Auth ID en la nube
                 const { error: updateError } = await supabase
                     .from('cuentas_temporales')
-                    .update({ 
+                    .update({
                         auth_id: authData.user.id,
                         email: email // Guardamos el email para referencia
                     })
@@ -53,7 +53,7 @@ export const VerificarCuenta = ({ username, currentRole, onVerified }: Verificar
                 if (profileError) console.error("Error actualizando perfil:", profileError);
 
                 alert('¡Casi listo! Se ha enviado un correo de confirmación a ' + email + '. Una vez que confirmes, podrás entrar con tu correo.');
-                
+
                 // Limpiamos la sesión temporal
                 localStorage.removeItem("biblio_temp_session");
                 localStorage.removeItem("biblio_role");
@@ -67,7 +67,7 @@ export const VerificarCuenta = ({ username, currentRole, onVerified }: Verificar
     };
 
     return (
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-xl">
+        <div className="bg-linear-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-xl">
             <div className="flex items-center gap-3 mb-4">
                 <ShieldCheck className="w-8 h-8 text-blue-200" />
                 <div>
