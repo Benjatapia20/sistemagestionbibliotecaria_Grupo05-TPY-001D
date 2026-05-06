@@ -53,12 +53,14 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
         let servidorLocalDisponible = false;
         let librosSubidos = 0;
         let usuariosSincronizados = 0;
+        let favoritosSincronizados = 0;
 
         const localApi = import.meta.env.VITE_LOCAL_API_URL;
 
         try {
-            // A. Sincronizar Usuarios primero
+            // A. Sincronizar Usuarios y Favoritos primero
             usuariosSincronizados = await sincronizarUsuarios();
+            favoritosSincronizados = await sincronizarFavoritos();
 
             // B. Obtener libros locales
             const controller = new AbortController();
@@ -119,7 +121,7 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
 
         return {
             success: true,
-            message: `Sincronización exitosa: ${librosSubidos} libros actualizados y ${usuariosSincronizados} usuarios sincronizados.`,
+            message: `Sincronización exitosa: ${librosSubidos} libros actualizados, ${usuariosSincronizados} usuarios y ${favoritosSincronizados} favoritos sincronizados.`,
         };
     } catch (error: any) {
         console.error("Error crítico en la sincronización:", error);
@@ -162,4 +164,41 @@ async function sincronizarUsuarios(): Promise<number> {
     }
 
     return sincronizados;
-};
+}
+
+async function sincronizarFavoritos(): Promise<number> {
+    const localApi = import.meta.env.VITE_LOCAL_API_URL;
+    let sincronizados = 0;
+
+    try {
+        const res = await fetch(`${localApi}/favoritos`);
+        if (!res.ok) return 0;
+        
+        const favoritosLocales = await res.json();
+        if (!favoritosLocales || favoritosLocales.length === 0) return 0;
+
+        console.log(`[Sync] Sincronizando ${favoritosLocales.length} favoritos...`);
+        
+        const { error } = await supabase
+            .from('favoritos')
+            .upsert(
+                favoritosLocales.map((fav: any) => ({
+                    id: fav.id,
+                    usuario_id: fav.usuario_id,
+                    libro_id: fav.libro_id,
+                    created_at: fav.created_at
+                })), 
+                { onConflict: 'usuario_id,libro_id' }
+            );
+        
+        if (error) {
+            console.error(`[Sync] Error sincronizando favoritos:`, error.message);
+        } else {
+            sincronizados = favoritosLocales.length;
+        }
+    } catch (e) {
+        console.error("Error sincronizando favoritos:", e);
+    }
+
+    return sincronizados;
+}
