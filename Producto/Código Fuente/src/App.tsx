@@ -271,7 +271,13 @@ function App() {
           </div>
 
           <div className={activeTab === "catalogo" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
-            <ListaLibros key={refreshKey} onDataLoaded={setTotalLibros} />
+            <ListaLibros key={`cat-${refreshKey}`} onDataLoaded={setTotalLibros} userId={session?.user?.id} useLocal={useLocal} />
+          </div>
+
+          <div className={activeTab === "favoritos" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
+            {activeTab === "favoritos" && (
+              <ListaLibros key={`fav-${refreshKey}`} showFavoritesOnly={true} userId={session?.user?.id} useLocal={useLocal} />
+            )}
           </div>
 
           <div className={activeTab === "config" ? "flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar" : "hidden"}>
