@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookOpen, LayoutDashboard, Library, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
+import { BookOpen, LayoutDashboard, Library, ChevronLeft, ChevronRight, Settings, Heart } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -13,6 +13,7 @@ export const Sidebar = ({ activeTab, setActiveTab, userRole }: SidebarProps) => 
   const menuItems = [
     { id: 'dashboard', label: 'Panel', icon: LayoutDashboard, adminOnly: true },
     { id: 'catalogo', label: 'Catálogo', icon: Library, adminOnly: false },
+    { id: 'favoritos', label: 'Favoritos', icon: Heart, adminOnly: false },
     { id: 'config', label: 'Ajustes', icon: Settings, adminOnly: false },
   ].filter(item => !item.adminOnly || userRole === 'admin');
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Book, User, Hash, Tag, Archive, Calendar, Globe, FileText, MapPin } from 'lucide-react';
+import { X, Book, User, Hash, Tag, Archive, Calendar, Globe, FileText, MapPin, Heart } from 'lucide-react';
 
 interface Libro {
   id: number;
@@ -23,28 +23,44 @@ interface DetalleLibroProps {
   libro: Libro | null;
   onClose: () => void;
   getImagenSrc: (path: string | undefined, url: string | undefined) => string;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
-export const DetalleLibro = ({ libro, onClose, getImagenSrc }: DetalleLibroProps) => {
+export const DetalleLibro = ({ libro, onClose, getImagenSrc, isFavorite, onToggleFavorite }: DetalleLibroProps) => {
   if (!libro) return null;
 
   return (
     <div className="h-full w-full bg-white dark:bg-slate-950 flex flex-col border-l border-slate-100 dark:border-slate-800">
       {/* Cabecera con Imagen */}
       <div className="relative h-64 shrink-0 overflow-hidden">
-        <img 
-          src={getImagenSrc(undefined, libro.caratula_url)} 
+        <img
+          src={getImagenSrc(undefined, libro.caratula_url)}
           alt={libro.titulo}
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 to-transparent" />
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-colors z-10"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="absolute inset-0 bg-linear-to-t from-slate-950/90 to-transparent" />
         
+        {/* Acciones Superiores */}
+        <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite?.();
+            }}
+            className="p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-colors"
+          >
+            <Heart className={`w-5 h-5 transition-colors ${isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+          </button>
+          
+          <button 
+            onClick={onClose}
+            className="p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
         <div className="absolute bottom-6 left-6 right-6">
           <span className="px-2 py-0.5 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-md mb-2 inline-block">
             {libro.genero}
@@ -57,7 +73,7 @@ export const DetalleLibro = ({ libro, onClose, getImagenSrc }: DetalleLibroProps
 
       {/* Contenido con Scroll Propio */}
       <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
-        
+
         {/* Grid de Información Rápida */}
         <div className="grid grid-cols-2 gap-4">
           <InfoItem icon={<User />} label="Autor" value={libro.autor} />
@@ -104,7 +120,7 @@ export const DetalleLibro = ({ libro, onClose, getImagenSrc }: DetalleLibroProps
 const InfoItem = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) => (
   <div className="flex items-start gap-3">
     <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg">
-      {React.cloneElement(icon as React.ReactElement<{className?: string}>, { className: 'w-4 h-4' })}
+      {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'w-4 h-4' })}
     </div>
     <div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
@@ -116,7 +132,7 @@ const InfoItem = ({ icon, label, value }: { icon: React.ReactNode, label: string
 const TechnicalDetail = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) => (
   <div className="flex items-center gap-2">
     <span className="text-slate-400">
-      {React.cloneElement(icon as React.ReactElement<{className?: string}>, { className: 'w-3.5 h-3.5' })}
+      {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'w-3.5 h-3.5' })}
     </span>
     <span className="text-xs text-slate-500 dark:text-slate-400">{label}:</span>
     <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{value}</span>

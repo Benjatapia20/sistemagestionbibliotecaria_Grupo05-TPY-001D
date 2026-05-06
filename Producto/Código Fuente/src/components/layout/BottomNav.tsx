@@ -1,4 +1,4 @@
-import { LayoutDashboard, Library, Settings } from "lucide-react";
+import { LayoutDashboard, Library, Settings, Heart } from "lucide-react";
 
 interface BottomNavProps {
   activeTab: string;
@@ -10,6 +10,7 @@ export const BottomNav = ({ activeTab, setActiveTab, userRole }: BottomNavProps)
   const menuItems = [
     { id: "dashboard", label: "Panel", icon: LayoutDashboard, adminOnly: true },
     { id: "catalogo", label: "Catálogo", icon: Library, adminOnly: false },
+    { id: "favoritos", label: "Favoritos", icon: Heart, adminOnly: false },
     { id: "config", label: "Ajustes", icon: Settings, adminOnly: false },
   ].filter(item => !item.adminOnly || userRole === 'admin');
 
