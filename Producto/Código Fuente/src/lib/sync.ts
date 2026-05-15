@@ -54,13 +54,15 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
         let librosSubidos = 0;
         let usuariosSincronizados = 0;
         let favoritosSincronizados = 0;
+        let prestamosSincronizados = 0;
 
         const localApi = import.meta.env.VITE_LOCAL_API_URL;
 
         try {
-            // A. Sincronizar Usuarios y Favoritos primero
+            // A. Sincronizar Usuarios, Favoritos y Préstamos primero
             usuariosSincronizados = await sincronizarUsuarios();
             favoritosSincronizados = await sincronizarFavoritos();
+            prestamosSincronizados = await sincronizarPrestamos();
 
             // B. Obtener libros locales
             const controller = new AbortController();
@@ -121,7 +123,7 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
 
         return {
             success: true,
-            message: `Sincronización exitosa: ${librosSubidos} libros actualizados, ${usuariosSincronizados} usuarios y ${favoritosSincronizados} favoritos sincronizados.`,
+            message: `Sincronización exitosa: ${librosSubidos} libros, ${usuariosSincronizados} usuarios, ${favoritosSincronizados} favoritos y ${prestamosSincronizados} préstamos sincronizados.`,
         };
     } catch (error: any) {
         console.error("Error crítico en la sincronización:", error);
@@ -198,6 +200,51 @@ async function sincronizarFavoritos(): Promise<number> {
         }
     } catch (e) {
         console.error("Error sincronizando favoritos:", e);
+    }
+
+    return sincronizados;
+}
+
+async function sincronizarPrestamos(): Promise<number> {
+    const localApi = import.meta.env.VITE_LOCAL_API_URL;
+    let sincronizados = 0;
+
+    try {
+        const res = await fetch(`${localApi}/prestamos`);
+        if (!res.ok) return 0;
+        
+        const prestamosLocales = await res.json();
+        if (!prestamosLocales || prestamosLocales.length === 0) return 0;
+
+        console.log(`[Sync] Sincronizando ${prestamosLocales.length} préstamos...`);
+        
+        for (const prestamo of prestamosLocales) {
+            const { error } = await supabase
+                .from('prestamos')
+                .upsert({
+                    id: prestamo.id,
+                    usuario_id: prestamo.usuario_id,
+                    libro_id: prestamo.libro_id,
+                    estado: prestamo.estado,
+                    fecha_solicitud: prestamo.fecha_solicitud,
+                    fecha_aprobacion: prestamo.fecha_aprobacion,
+                    fecha_devolucion_esperada: prestamo.fecha_devolucion_esperada,
+                    fecha_devolucion_real: prestamo.fecha_devolucion_real,
+                    multa: prestamo.multa,
+                    multa_pagada: prestamo.multa_pagada,
+                    observaciones: prestamo.observaciones,
+                    estado_libro_devolucion: prestamo.estado_libro_devolucion,
+                    created_at: prestamo.created_at
+                }, { onConflict: 'id' });
+            
+            if (error) {
+                console.error(`[Sync] Error sincronizando préstamo ${prestamo.id}:`, error.message);
+            } else {
+                sincronizados++;
+            }
+        }
+    } catch (e) {
+        console.error("Error sincronizando préstamos:", e);
     }
 
     return sincronizados;

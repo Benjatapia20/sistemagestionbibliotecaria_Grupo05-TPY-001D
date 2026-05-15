@@ -1,14 +1,16 @@
-import { LayoutDashboard, Library, Settings, Heart } from "lucide-react";
+import { LayoutDashboard, Library, Settings, Heart, Clock } from "lucide-react";
 
 interface BottomNavProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   userRole: 'admin' | 'usuario';
+  prestamosPendientes?: number;
 }
 
-export const BottomNav = ({ activeTab, setActiveTab, userRole }: BottomNavProps) => {
+export const BottomNav = ({ activeTab, setActiveTab, userRole, prestamosPendientes = 0 }: BottomNavProps) => {
   const menuItems = [
     { id: "dashboard", label: "Panel", icon: LayoutDashboard, adminOnly: true },
+    { id: "prestamos", label: "Préstamos", icon: Clock, adminOnly: false, badge: userRole === 'admin' ? prestamosPendientes : 0 },
     { id: "catalogo", label: "Catálogo", icon: Library, adminOnly: false },
     { id: "favoritos", label: "Favoritos", icon: Heart, adminOnly: false },
     { id: "config", label: "Ajustes", icon: Settings, adminOnly: false },
@@ -42,9 +44,16 @@ export const BottomNav = ({ activeTab, setActiveTab, userRole }: BottomNavProps)
                   : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 w-full"
               }`}
             >
-              <Icon
-                className={`w-5 h-5 transition-transform duration-300 ${isActive ? "scale-110" : "scale-100"}`}
-              />
+              <div className="relative">
+                <Icon
+                  className={`w-5 h-5 transition-transform duration-300 ${isActive ? "scale-110" : "scale-100"}`}
+                />
+                {(item as any).badge > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[8px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                    {(item as any).badge}
+                  </span>
+                )}
+              </div>
               <span
                 className={`text-[10px] font-medium mt-0.5 transition-all duration-300 ${isActive ? "opacity-100" : "opacity-70"}`}
               >

@@ -13,7 +13,8 @@ import {
   Layers, 
   Heart,
   Clock,
-  ShieldCheck
+  ShieldCheck,
+  BookOpen
 } from 'lucide-react';
 
 interface Libro {
@@ -39,6 +40,8 @@ interface LibroDetalleCompletoProps {
   getImagenSrc: (path: string | undefined, url: string | undefined) => string;
   isFavorite: boolean;
   onToggleFavorite: (id: number) => void;
+  onSolicitarPrestamo?: () => void;
+  tienePrestamoActivo?: boolean;
 }
 
 export const LibroDetalleCompleto = ({ 
@@ -46,7 +49,9 @@ export const LibroDetalleCompleto = ({
   onBack, 
   getImagenSrc, 
   isFavorite, 
-  onToggleFavorite 
+  onToggleFavorite,
+  onSolicitarPrestamo,
+  tienePrestamoActivo
 }: LibroDetalleCompletoProps) => {
   const imageUrl = getImagenSrc(libro.caratula, libro.caratula_url);
 
@@ -164,9 +169,24 @@ export const LibroDetalleCompleto = ({
               </div>
 
               <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800">
-                <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-blue-600/20 active:scale-95 text-lg">
-                  Solicitar Préstamo
-                </button>
+                {tienePrestamoActivo ? (
+                  <div className="w-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold py-4 rounded-2xl text-center flex items-center justify-center gap-2">
+                    <BookOpen className="w-5 h-5" />
+                    Ya tienes este libro prestado
+                  </div>
+                ) : libro.stock > 0 ? (
+                  <button
+                    onClick={onSolicitarPrestamo}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-blue-600/20 active:scale-95 text-lg flex items-center justify-center gap-2"
+                  >
+                    <BookOpen className="w-5 h-5" />
+                    Solicitar Préstamo
+                  </button>
+                ) : (
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-bold py-4 rounded-2xl text-center">
+                    No disponible actualmente
+                  </div>
+                )}
                 <p className="text-[10px] text-center text-slate-400 mt-4 font-medium uppercase tracking-wider">
                   Sujeto a disponibilidad física en biblioteca
                 </p>

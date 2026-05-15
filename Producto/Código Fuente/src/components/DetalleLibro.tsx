@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Book, User, Hash, Tag, Archive, Calendar, Globe, FileText, MapPin, Heart } from 'lucide-react';
+import { X, Book, User, Hash, Tag, Archive, Calendar, Globe, FileText, MapPin, Heart, BookOpen } from 'lucide-react';
 
 interface Libro {
   id: number;
@@ -10,7 +10,6 @@ interface Libro {
   genero?: string;
   caratula?: string;
   caratula_url?: string;
-  // Campos extendidos
   editorial?: string;
   anio_publication?: number;
   sinopsis?: string;
@@ -26,9 +25,11 @@ interface DetalleLibroProps {
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   onVerMas?: (libro: Libro) => void;
+  onSolicitarPrestamo?: () => void;
+  tienePrestamoActivo?: boolean;
 }
 
-export const DetalleLibro = ({ libro, onClose, getImagenSrc, isFavorite, onToggleFavorite, onVerMas }: DetalleLibroProps) => {
+export const DetalleLibro = ({ libro, onClose, getImagenSrc, isFavorite, onToggleFavorite, onVerMas, onSolicitarPrestamo, tienePrestamoActivo }: DetalleLibroProps) => {
   if (!libro) return null;
 
   return (
@@ -116,9 +117,24 @@ export const DetalleLibro = ({ libro, onClose, getImagenSrc, isFavorite, onToggl
         >
           Ver más detalles
         </button>
-        <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm">
-          Solicitar Préstamo
-        </button>
+        {tienePrestamoActivo ? (
+          <div className="w-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold py-3 rounded-xl text-sm text-center flex items-center justify-center gap-2">
+            <BookOpen className="w-4 h-4" />
+            Ya tienes este libro prestado
+          </div>
+        ) : libro.stock > 0 ? (
+          <button
+            onClick={() => onSolicitarPrestamo?.()}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm flex items-center justify-center gap-2"
+          >
+            <BookOpen className="w-4 h-4" />
+            Solicitar Préstamo
+          </button>
+        ) : (
+          <div className="w-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-bold py-3 rounded-xl text-sm text-center">
+            No disponible actualmente
+          </div>
+        )}
       </div>
     </div>
   );

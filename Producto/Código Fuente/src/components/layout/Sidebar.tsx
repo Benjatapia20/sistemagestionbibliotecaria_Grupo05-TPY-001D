@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { BookOpen, LayoutDashboard, Library, ChevronLeft, ChevronRight, Settings, Heart } from 'lucide-react';
+import { BookOpen, LayoutDashboard, Library, ChevronLeft, ChevronRight, Settings, Heart, Clock } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   userRole: 'admin' | 'usuario';
+  prestamosPendientes?: number;
 }
 
-export const Sidebar = ({ activeTab, setActiveTab, userRole }: SidebarProps) => {
+export const Sidebar = ({ activeTab, setActiveTab, userRole, prestamosPendientes = 0 }: SidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const menuItems = [
     { id: 'dashboard', label: 'Panel', icon: LayoutDashboard, adminOnly: true },
+    { id: 'prestamos', label: 'Préstamos', icon: Clock, adminOnly: false, badge: userRole === 'admin' ? prestamosPendientes : 0 },
     { id: 'catalogo', label: 'Catálogo', icon: Library, adminOnly: false },
     { id: 'favoritos', label: 'Favoritos', icon: Heart, adminOnly: false },
     { id: 'config', label: 'Ajustes', icon: Settings, adminOnly: false },
@@ -36,15 +38,22 @@ export const Sidebar = ({ activeTab, setActiveTab, userRole }: SidebarProps) => 
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-start'} px-3 py-3 rounded-xl transition-colors ${
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} px-3 py-3 rounded-xl transition-colors ${
                 isActive 
                 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold' 
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
               title={isCollapsed ? item.label : undefined}
             >
-              <Icon className="w-5 h-5 shrink-0" />
-              {!isCollapsed && <span className="ml-3">{item.label}</span>}
+              <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
+                <Icon className="w-5 h-5 shrink-0" />
+                {!isCollapsed && <span>{item.label}</span>}
+              </div>
+              {!isCollapsed && (item as any).badge > 0 && (
+                <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                  {(item as any).badge}
+                </span>
+              )}
             </button>
           );
         })}

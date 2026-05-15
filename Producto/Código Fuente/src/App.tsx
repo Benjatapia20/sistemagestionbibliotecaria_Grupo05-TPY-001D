@@ -11,6 +11,11 @@ import { sincronizarConNube } from "./lib/sync";
 import { VerificarCuenta } from "./components/VerificarCuenta";
 import { LibroDetalleCompleto } from "./components/LibroDetalleCompleto";
 import { useFavorites } from "./hooks/useFavorites";
+import { usePrestamos } from "./hooks/usePrestamos";
+import { PrestamosLista } from "./components/PrestamosLista";
+import { MisPrestamos } from "./components/MisPrestamos";
+import { PrestamosDashboard } from "./components/PrestamosDashboard";
+import { ModalSolicitarPrestamo } from "./components/ModalSolicitarPrestamo";
 import {
   Sun,
   Moon,
@@ -23,7 +28,6 @@ import {
 } from "lucide-react";
 import { useConfig } from "./hooks/useConfig";
 
-// Componentes de Layout
 import { Sidebar } from "./components/layout/Sidebar";
 import { BottomNav } from "./components/layout/BottomNav";
 
@@ -54,10 +58,28 @@ function App() {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const { useLocal, toggleUseLocal } = useConfig();
   const [libroSeleccionadoFull, setLibroSeleccionadoFull] = useState<any | null>(null);
+  const [libroSolicitando, setLibroSolicitando] = useState<Libro | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
+  const userId = session?.user?.id || (session?.user as any)?.email?.split('@')[0];
   const { favoritos, toggleFavorite } = useFavorites(session?.user?.id, useLocal);
+  const {
+    prestamos,
+    config,
+    loading: prestamosLoading,
+    prestamosPendientes,
+    solicitarPrestamo,
+    aprobarPrestamo,
+    rechazarPrestamo,
+    solicitarDevolucion,
+    aprobarDevolucion,
+    rechazarDevolucion,
+    solicitarRenovacion,
+    aprobarRenovacion,
+    rechazarRenovacion,
+    refreshPrestamos
+  } = usePrestamos(userId, userRole, useLocal);
 
-  // Estado para la navegación
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem("biblio_activeTab") || "dashboard";
   });
@@ -65,6 +87,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem("biblio_activeTab", activeTab);
   }, [activeTab]);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const handleLibroAgregado = async () => {
     setRefreshKey((prev) => prev + 1);
@@ -92,6 +119,7 @@ function App() {
       setSyncStatus(result.message);
       if (result.success) {
         setRefreshKey((prev) => prev + 1);
+        refreshPrestamos();
       }
       setTimeout(() => setSyncStatus(null), 3000);
     } catch (error) {
@@ -103,10 +131,80 @@ function App() {
     }
   };
 
+  const handleSolicitarPrestamo = async (libroId: number) => {
+    const result = await solicitarPrestamo(libroId);
+    showToast(result.message, result.success ? 'success' : 'error');
+    if (result.success) {
+      setLibroSolicitando(null);
+    }
+    return result;
+  };
+
+  const handleAprobarPrestamo = async (prestamoId: string) => {
+    const result = await aprobarPrestamo(prestamoId);
+    showToast(result.message, result.success ? 'success' : 'error');
+    return result;
+  };
+
+  const handleRechazarPrestamo = async (prestamoId: string) => {
+    const result = await rechazarPrestamo(prestamoId);
+    showToast(result.message, result.success ? 'success' : 'error');
+    return result;
+  };
+
+  const handleAprobarDevolucion = async (prestamoId: string) => {
+    const result = await aprobarDevolucion(prestamoId);
+    if (result.success) {
+      let msg = 'Devolución aprobada';
+      if (result.diasAtraso && result.diasAtraso > 0) msg += ` (${result.diasAtraso} días de atraso)`;
+      if (result.multa && result.multa > 0) msg += ` - Multa: $${result.multa.toLocaleString('es-CL')}`;
+      showToast(msg, 'success');
+    } else {
+      showToast(result.message, 'error');
+    }
+    return result;
+  };
+
+  const handleRechazarDevolucion = async (prestamoId: string) => {
+    const result = await rechazarDevolucion(prestamoId);
+    showToast(result.message, result.success ? 'success' : 'error');
+    return result;
+  };
+
+  const handleAprobarRenovacion = async (prestamoId: string) => {
+    const result = await aprobarRenovacion(prestamoId);
+    showToast(result.message, result.success ? 'success' : 'error');
+    return result;
+  };
+
+  const handleRechazarRenovacion = async (prestamoId: string) => {
+    const result = await rechazarRenovacion(prestamoId);
+    showToast(result.message, result.success ? 'success' : 'error');
+    return result;
+  };
+
+  const handleSolicitarDevolucion = async (prestamoId: string, estadoLibro: string, observaciones: string) => {
+    const result = await solicitarDevolucion(prestamoId, estadoLibro, observaciones);
+    if (result.success) {
+      let msg = result.message;
+      if (result.multaEstimada && result.multaEstimada > 0) msg += ` (Multa estimada: $${result.multaEstimada.toLocaleString('es-CL')})`;
+      showToast(msg, 'success');
+    } else {
+      showToast(result.message, 'error');
+    }
+    return result;
+  };
+
+  const handleSolicitarRenovacion = async (prestamoId: string) => {
+    const result = await solicitarRenovacion(prestamoId);
+    showToast(result.message, result.success ? 'success' : 'error');
+    return result;
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem("biblio_role");
-    localStorage.removeItem("biblio_temp_session"); // Limpiar sesión temporal
+    localStorage.removeItem("biblio_temp_session");
     setActiveTab("dashboard");
     localStorage.setItem("biblio_activeTab", "dashboard");
     window.location.reload();
@@ -130,7 +228,6 @@ function App() {
   };
 
   useEffect(() => {
-    // 1. Escuchar cambios de Supabase
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -139,7 +236,6 @@ function App() {
         fetchUserRole(session.user.id);
         setCheckingAuth(false);
       } else {
-        // Si no hay sesión de Supabase, buscamos la temporal
         const tempSession = localStorage.getItem("biblio_temp_session");
         if (tempSession) {
           const parsed = JSON.parse(tempSession);
@@ -152,7 +248,6 @@ function App() {
       }
     });
 
-    // 2. Verificar sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setSession(session);
@@ -172,6 +267,16 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const prestamosActivosCount = prestamos.filter(p =>
+    p.usuario_id === userId && (p.estado === 'activo' || p.estado === 'solicitado')
+  ).length;
+
+  const tienePrestamoActivo = (libroId: number) => {
+    return prestamos.some(p =>
+      p.usuario_id === userId && p.libro_id === libroId && (p.estado === 'activo' || p.estado === 'solicitado')
+    );
+  };
+
   if (checkingAuth) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-slate-100 dark:bg-slate-950">
@@ -186,11 +291,21 @@ function App() {
 
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-50 overflow-hidden transition-colors duration-300">
-      {/* Sidebar para Escritorio */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole} />
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-200 px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-in fade-in slide-in-from-top-4 duration-300 ${
+          toast.type === 'success'
+            ? 'bg-emerald-600 text-white'
+            : 'bg-red-600 text-white'
+        }`}>
+          {toast.message}
+        </div>
+      )}
+
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole} prestamosPendientes={prestamosPendientes} />
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Contenido Principal */}
         <main className="flex-1 flex flex-col min-h-0 relative">
+          {/* DASHBOARD */}
           <div className={activeTab === "dashboard" ? "block flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 custom-scrollbar" : "hidden"}>
             <div className="space-y-6 max-w-7xl mx-auto">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -213,9 +328,7 @@ function App() {
                       disabled={syncing}
                       className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold w-full sm:w-auto justify-center"
                     >
-                      <RefreshCw
-                        className={`w-5 h-5 ${syncing ? "animate-spin" : ""}`}
-                      />
+                      <RefreshCw className={`w-5 h-5 ${syncing ? "animate-spin" : ""}`} />
                       {syncing ? "Sincronizando..." : "Sincronizar"}
                     </button>
                     <button
@@ -228,22 +341,15 @@ function App() {
                   </div>
                 )}
               </div>
-              {/* Estado de sincronización */}
               {syncStatus && (
                 <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg text-sm">
                   {syncStatus}
                 </div>
               )}
-              {/* Lista de libros simple */}
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h2 className="font-bold text-slate-900 dark:text-white">
-                    Lista de Libros
-                  </h2>
-                  <button
-                    onClick={() => setRefreshKey((prev) => prev + 1)}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                  >
+                  <h2 className="font-bold text-slate-900 dark:text-white">Lista de Libros</h2>
+                  <button onClick={() => setRefreshKey((prev) => prev + 1)} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
                     Actualizar
                   </button>
                 </div>
@@ -255,39 +361,75 @@ function App() {
                   }}
                 />
               </div>
-              {/* Estadísticas */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 flex flex-col shadow-sm">
-                  <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                    Libros Disponibles
-                  </span>
+                  <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">Libros Disponibles</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400 text-2xl">{totalLibros}</span>
+                </div>
+                <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 flex flex-col shadow-sm">
+                  <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">Préstamos Activos</span>
                   <span className="font-bold text-blue-600 dark:text-blue-400 text-2xl">
-                    {totalLibros}
+                    {prestamos.filter(p => p.estado === 'activo' || p.estado === 'vencido').length}
                   </span>
                 </div>
                 <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 flex flex-col shadow-sm">
-                  <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                    Préstamos Activos
-                  </span>
-                  <span className="font-bold text-blue-600 dark:text-blue-400 text-2xl">
-                    0
-                  </span>
-                </div>
-                <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 flex flex-col shadow-sm">
-                  <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                    Estado de Conexión
-                  </span>
+                  <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">Estado de Conexión</span>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <span className="font-bold text-green-600 dark:text-green-400 text-sm uppercase tracking-wider">
-                      Online
-                    </span>
+                    <span className="font-bold text-green-600 dark:text-green-400 text-sm uppercase tracking-wider">Online</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* PRESTAMOS */}
+          <div className={activeTab === "prestamos" ? "flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar" : "hidden"}>
+            <div className="space-y-6 max-w-7xl mx-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+                    {userRole === 'admin' ? 'Gestión de Préstamos' : 'Mis Préstamos'}
+                  </h1>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    {userRole === 'admin'
+                      ? 'Administra todas las solicitudes y devoluciones'
+                      : 'Revisa tus préstamos activos e historial'}
+                  </p>
+                </div>
+              </div>
+
+              {userRole === 'admin' && (
+                <PrestamosDashboard prestamos={prestamos} totalLibros={totalLibros} />
+              )}
+
+              {userRole === 'admin' ? (
+                <PrestamosLista
+                  prestamos={prestamos}
+                  loading={prestamosLoading}
+                  userRole={userRole}
+                  onAprobar={handleAprobarPrestamo}
+                  onRechazar={handleRechazarPrestamo}
+                  onAprobarDevolucion={handleAprobarDevolucion}
+                  onRechazarDevolucion={handleRechazarDevolucion}
+                  onAprobarRenovacion={handleAprobarRenovacion}
+                  onRechazarRenovacion={handleRechazarRenovacion}
+                  multaPorDia={config?.multa_por_dia || 100}
+                />
+              ) : (
+                <MisPrestamos
+                  prestamos={prestamos}
+                  loading={prestamosLoading}
+                  onSolicitarDevolucion={handleSolicitarDevolucion}
+                  onSolicitarRenovacion={handleSolicitarRenovacion}
+                  onRefresh={refreshPrestamos}
+                  multaPorDia={config?.multa_por_dia || 100}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* FAVORITOS */}
           <div className={activeTab === "favoritos" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
             {activeTab === "favoritos" && (
               <ListaLibros 
@@ -300,6 +442,7 @@ function App() {
             )}
           </div>
 
+          {/* CATALOGO */}
           <div className={activeTab === "catalogo" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
             <ListaLibros 
               key={`cat-${refreshKey}`} 
@@ -307,18 +450,18 @@ function App() {
               userId={session?.user?.id} 
               useLocal={useLocal} 
               onVerMas={handleVerMas}
+              onSolicitarPrestamo={(libro) => setLibroSolicitando(libro)}
+              tienePrestamoActivo={tienePrestamoActivo}
             />
           </div>
 
-
-
+          {/* CONFIG */}
           <div className={activeTab === "config" ? "flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar" : "hidden"}>
             <div className="space-y-6 max-w-2xl mx-auto">
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-6">
                 Ajustes del Sistema
               </h1>
 
-              {/* SECCIÓN DE VERIFICACIÓN (Solo para usuarios temporales) */}
               {(session?.user as any)?.isTemp && (
                 <VerificarCuenta
                   username={session?.user?.email?.split('@')[0] || ''}
@@ -328,70 +471,45 @@ function App() {
               )}
 
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-slate-200 dark:divide-slate-800">
-                {/* Perfil */}
                 <div className="p-6 flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">
                       <UserIcon className="w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                        Cuenta Activa
-                      </p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {session.user.email}
-                      </p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Cuenta Activa</p>
+                      <p className="font-semibold text-slate-900 dark:text-white">{session.user.email}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Tema */}
                 <div className="p-6 flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-white">
-                      Apariencia
-                    </h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Cambiar entre modo claro y oscuro
-                    </p>
+                    <h3 className="font-semibold text-slate-900 dark:text-white">Apariencia</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Cambiar entre modo claro y oscuro</p>
                   </div>
                   <button
                     onClick={toggleTheme}
                     className="flex items-center gap-2 p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors font-medium"
                   >
-                    {isDark ? (
-                      <Sun className="w-5 h-5" />
-                    ) : (
-                      <Moon className="w-5 h-5" />
-                    )}
-                    <span className="hidden sm:inline">
-                      {isDark ? "Modo Claro" : "Modo Oscuro"}
-                    </span>
+                    {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    <span className="hidden sm:inline">{isDark ? "Modo Claro" : "Modo Oscuro"}</span>
                   </button>
                 </div>
 
                 <div className="p-6 flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-white">
-                      Servidor de Datos
-                    </h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Usar base de datos local (Docker) o la nube
-                    </p>
+                    <h3 className="font-semibold text-slate-900 dark:text-white">Servidor de Datos</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Usar base de datos local (Docker) o la nube</p>
                   </div>
                   <button
                     onClick={toggleUseLocal}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${useLocal ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
-                      }`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${useLocal ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
                   >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${useLocal ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                    />
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${useLocal ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
                 </div>
 
-                {/* Cerrar Sesión */}
                 <div className="p-6">
                   <button
                     onClick={handleLogout}
@@ -405,40 +523,28 @@ function App() {
             </div>
           </div>
         </main>
-        {/* Modal de Agregar Libro */}
+
         {isAddModalOpen && (
           <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4">
             <div className="w-full max-w-md animate-in fade-in zoom-in duration-200">
-              <AgregarLibro
-                onLibroAgregado={handleLibroAgregado}
-                onCancel={() => setIsAddModalOpen(false)}
-              />
+              <AgregarLibro onLibroAgregado={handleLibroAgregado} onCancel={() => setIsAddModalOpen(false)} />
             </div>
           </div>
         )}
-        {/* Modal de Editar Libro */}
         {isEditModalOpen && libroEditando && (
           <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4">
             <div className="w-full max-w-md animate-in fade-in zoom-in duration-200">
               <EditarLibro
                 libro={libroEditando}
-                onGuardado={() => {
-                  setRefreshKey((prev) => prev + 1);
-                  setIsEditModalOpen(false);
-                  setLibroEditando(null);
-                }}
-                onCancel={() => {
-                  setIsEditModalOpen(false);
-                  setLibroEditando(null);
-                }}
+                onGuardado={() => { setRefreshKey((prev) => prev + 1); setIsEditModalOpen(false); setLibroEditando(null); }}
+                onCancel={() => { setIsEditModalOpen(false); setLibroEditando(null); }}
               />
             </div>
           </div>
         )}
-        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole} />
+        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole} prestamosPendientes={prestamosPendientes} />
       </div>
 
-      {/* Vista Detallada Completa (Modal Global) */}
       {libroSeleccionadoFull && (
         <LibroDetalleCompleto 
           libro={libroSeleccionadoFull}
@@ -446,6 +552,28 @@ function App() {
           getImagenSrc={getImagenSrcGlobal}
           isFavorite={favoritos.has(libroSeleccionadoFull.id)}
           onToggleFavorite={toggleFavorite}
+          onSolicitarPrestamo={() => {
+            setLibroSolicitando(libroSeleccionadoFull);
+            setLibroSeleccionadoFull(null);
+          }}
+          tienePrestamoActivo={tienePrestamoActivo(libroSeleccionadoFull.id)}
+        />
+      )}
+
+      {libroSolicitando && userId && (
+        <ModalSolicitarPrestamo
+          libro={libroSolicitando}
+          userId={userId}
+          useLocal={useLocal}
+          onSolicitar={handleSolicitarPrestamo}
+          onSuccess={() => {
+            showToast('Préstamo solicitado correctamente', 'success');
+            setLibroSolicitando(null);
+          }}
+          onCancel={() => setLibroSolicitando(null)}
+          configDias={config?.dias_maximos_prestamo || 14}
+          maxPrestamosActivos={config?.max_prestamos_activos || 3}
+          prestamosActivosCount={prestamosActivosCount}
         />
       )}
     </div>

@@ -28,6 +28,8 @@ interface Props {
   userId?: string;
   useLocal?: boolean;
   onVerMas?: (libro: Libro) => void;
+  onSolicitarPrestamo?: (libro: Libro) => void;
+  tienePrestamoActivo?: (libroId: number) => boolean;
 }
 
 const MobileBottomSheet = ({ isOpen, onClose, children }: { isOpen: boolean, onClose: () => void, children: React.ReactNode }) => {
@@ -117,7 +119,7 @@ const MobileBottomSheet = ({ isOpen, onClose, children }: { isOpen: boolean, onC
   );
 };
 
-export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, useLocal = false, onVerMas }: Props) => {
+export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, useLocal = false, onVerMas, onSolicitarPrestamo, tienePrestamoActivo }: Props) => {
   const [libros, setLibros] = useState<Libro[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -316,6 +318,8 @@ export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, u
           isFavorite={selectedLibro ? favoritos.has(selectedLibro.id) : false}
           onToggleFavorite={() => selectedLibro && toggleFavorite(selectedLibro.id)}
           onVerMas={onVerMas}
+          onSolicitarPrestamo={() => selectedLibro && onSolicitarPrestamo?.(selectedLibro)}
+          tienePrestamoActivo={selectedLibro ? tienePrestamoActivo?.(selectedLibro.id) : false}
         />
       </MobileBottomSheet>
 
@@ -330,6 +334,8 @@ export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, u
           isFavorite={selectedLibro ? favoritos.has(selectedLibro.id) : false}
           onToggleFavorite={() => selectedLibro && toggleFavorite(selectedLibro.id)}
           onVerMas={onVerMas}
+          onSolicitarPrestamo={() => selectedLibro && onSolicitarPrestamo?.(selectedLibro)}
+          tienePrestamoActivo={selectedLibro ? tienePrestamoActivo?.(selectedLibro.id) : false}
         />
       </div>
     </div>
