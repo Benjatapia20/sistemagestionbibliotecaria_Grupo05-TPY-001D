@@ -9,6 +9,8 @@ import { AgregarLibro } from "./components/AgregarLibro";
 import { EditarLibro } from "./components/EditarLibro";
 import { sincronizarConNube } from "./lib/sync";
 import { VerificarCuenta } from "./components/VerificarCuenta";
+import { LibroDetalleCompleto } from "./components/LibroDetalleCompleto";
+import { useFavorites } from "./hooks/useFavorites";
 import {
   Sun,
   Moon,
@@ -51,6 +53,9 @@ function App() {
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const { useLocal, toggleUseLocal } = useConfig();
+  const [libroSeleccionadoFull, setLibroSeleccionadoFull] = useState<any | null>(null);
+  
+  const { favoritos, toggleFavorite } = useFavorites(session?.user?.id, useLocal);
 
   // Estado para la navegación
   const [activeTab, setActiveTab] = useState(() => {
@@ -64,6 +69,19 @@ function App() {
   const handleLibroAgregado = async () => {
     setRefreshKey((prev) => prev + 1);
     setIsAddModalOpen(false);
+  };
+
+  const handleVerMas = (libro: any) => {
+    setLibroSeleccionadoFull(libro);
+  };
+
+  const getImagenSrcGlobal = (path: string | undefined, url: string | undefined) => {
+    const imagesBaseUrl = import.meta.env.VITE_IMAGES_URL || `http://${window.location.hostname}:3001`;
+    const finalPath = useLocal ? (path || url || '') : (url || path || '');
+
+    if (!finalPath) return "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop";
+    if (finalPath.startsWith('http')) return finalPath;
+    return `${imagesBaseUrl}${finalPath}`;
   };
 
   const handleSync = async () => {
@@ -270,15 +288,29 @@ function App() {
             </div>
           </div>
 
-          <div className={activeTab === "catalogo" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
-            <ListaLibros key={`cat-${refreshKey}`} onDataLoaded={setTotalLibros} userId={session?.user?.id} useLocal={useLocal} />
-          </div>
-
           <div className={activeTab === "favoritos" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
             {activeTab === "favoritos" && (
-              <ListaLibros key={`fav-${refreshKey}`} showFavoritesOnly={true} userId={session?.user?.id} useLocal={useLocal} />
+              <ListaLibros 
+                key={`fav-${refreshKey}`} 
+                showFavoritesOnly={true} 
+                userId={session?.user?.id} 
+                useLocal={useLocal} 
+                onVerMas={handleVerMas}
+              />
             )}
           </div>
+
+          <div className={activeTab === "catalogo" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
+            <ListaLibros 
+              key={`cat-${refreshKey}`} 
+              onDataLoaded={setTotalLibros} 
+              userId={session?.user?.id} 
+              useLocal={useLocal} 
+              onVerMas={handleVerMas}
+            />
+          </div>
+
+
 
           <div className={activeTab === "config" ? "flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar" : "hidden"}>
             <div className="space-y-6 max-w-2xl mx-auto">
@@ -403,9 +435,19 @@ function App() {
             </div>
           </div>
         )}
-        {/* BottomNav para Móviles */}
         <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} userRole={userRole} />
       </div>
+
+      {/* Vista Detallada Completa (Modal Global) */}
+      {libroSeleccionadoFull && (
+        <LibroDetalleCompleto 
+          libro={libroSeleccionadoFull}
+          onBack={() => setLibroSeleccionadoFull(null)}
+          getImagenSrc={getImagenSrcGlobal}
+          isFavorite={favoritos.has(libroSeleccionadoFull.id)}
+          onToggleFavorite={toggleFavorite}
+        />
+      )}
     </div>
   );
 }

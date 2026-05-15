@@ -25,9 +25,10 @@ interface DetalleLibroProps {
   getImagenSrc: (path: string | undefined, url: string | undefined) => string;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  onVerMas?: (libro: Libro) => void;
 }
 
-export const DetalleLibro = ({ libro, onClose, getImagenSrc, isFavorite, onToggleFavorite }: DetalleLibroProps) => {
+export const DetalleLibro = ({ libro, onClose, getImagenSrc, isFavorite, onToggleFavorite, onVerMas }: DetalleLibroProps) => {
   if (!libro) return null;
 
   return (
@@ -35,7 +36,7 @@ export const DetalleLibro = ({ libro, onClose, getImagenSrc, isFavorite, onToggl
       {/* Cabecera con Imagen */}
       <div className="relative h-64 shrink-0 overflow-hidden">
         <img
-          src={getImagenSrc(undefined, libro.caratula_url)}
+          src={getImagenSrc(libro.caratula, libro.caratula_url)}
           alt={libro.titulo}
           className="w-full h-full object-cover"
         />
@@ -108,7 +109,13 @@ export const DetalleLibro = ({ libro, onClose, getImagenSrc, isFavorite, onToggl
       </div>
 
       {/* Footer Fijo con Acción */}
-      <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950">
+      <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 space-y-2">
+        <button 
+          onClick={() => onVerMas?.(libro)}
+          className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-3 rounded-xl transition-all text-sm"
+        >
+          Ver más detalles
+        </button>
         <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm">
           Solicitar Préstamo
         </button>

@@ -27,6 +27,7 @@ interface Props {
   showFavoritesOnly?: boolean;
   userId?: string;
   useLocal?: boolean;
+  onVerMas?: (libro: Libro) => void;
 }
 
 const MobileBottomSheet = ({ isOpen, onClose, children }: { isOpen: boolean, onClose: () => void, children: React.ReactNode }) => {
@@ -116,7 +117,7 @@ const MobileBottomSheet = ({ isOpen, onClose, children }: { isOpen: boolean, onC
   );
 };
 
-export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, useLocal = false }: Props) => {
+export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, useLocal = false, onVerMas }: Props) => {
   const [libros, setLibros] = useState<Libro[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -186,7 +187,7 @@ export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, u
 
   const getImagenSrc = (path: string | undefined, url: string | undefined) => {
     const imagesBaseUrl = import.meta.env.VITE_IMAGES_URL || `http://${window.location.hostname}:3001`;
-    const finalPath = useLocal ? (path || '') : (url || path || '');
+    const finalPath = useLocal ? (path || url || '') : (url || path || '');
 
     if (!finalPath) return "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop";
     if (finalPath.startsWith('http')) return finalPath;
@@ -314,6 +315,7 @@ export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, u
           getImagenSrc={(p, u) => getImagenSrc(p, u)}
           isFavorite={selectedLibro ? favoritos.has(selectedLibro.id) : false}
           onToggleFavorite={() => selectedLibro && toggleFavorite(selectedLibro.id)}
+          onVerMas={onVerMas}
         />
       </MobileBottomSheet>
 
@@ -327,6 +329,7 @@ export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, u
           getImagenSrc={(p, u) => getImagenSrc(p, u)}
           isFavorite={selectedLibro ? favoritos.has(selectedLibro.id) : false}
           onToggleFavorite={() => selectedLibro && toggleFavorite(selectedLibro.id)}
+          onVerMas={onVerMas}
         />
       </div>
     </div>
