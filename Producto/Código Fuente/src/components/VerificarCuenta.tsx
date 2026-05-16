@@ -32,6 +32,7 @@ export const VerificarCuenta = ({ username, currentRole, onVerified }: Verificar
             if (authError) throw authError;
 
             if (authData.user) {
+                // Actualizar perfil en Supabase
                 const { error: profileError } = await supabase
                     .from('profiles')
                     .update({ rol: currentRole })
@@ -39,6 +40,19 @@ export const VerificarCuenta = ({ username, currentRole, onVerified }: Verificar
 
                 if (profileError) console.error("Error actualizando perfil:", profileError);
 
+                // Actualizar tabla usuarios con la nueva info
+                const { error: userError } = await supabase
+                    .from('usuarios')
+                    .update({
+                        tipo_auth: 'supabase',
+                        auth_ref_id: authData.user.id,
+                        email: email
+                    })
+                    .eq('username', username);
+
+                if (userError) console.error("Error actualizando usuario:", userError);
+
+                // Vincular cuenta temporal
                 const { error: updateError } = await supabase
                     .from('cuentas_temporales')
                     .update({
@@ -51,7 +65,7 @@ export const VerificarCuenta = ({ username, currentRole, onVerified }: Verificar
 
                 localStorage.removeItem("biblio_temp_session");
                 localStorage.removeItem("biblio_role");
-                
+
                 alert('¡Cuenta verificada! Ahora puedes iniciar sesión con tu correo.');
                 onVerified();
             }

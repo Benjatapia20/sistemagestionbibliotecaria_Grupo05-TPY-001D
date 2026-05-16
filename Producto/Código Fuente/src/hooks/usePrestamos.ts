@@ -27,6 +27,7 @@ export interface Prestamo {
         stock: number;
     };
     usuario?: {
+        id: string;
         username: string;
         email?: string;
     };
@@ -53,9 +54,10 @@ export const usePrestamos = (userId: string | undefined, userRole: 'admin' | 'us
         try {
             if (useLocal) {
                 const localApi = import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:3000';
+                const select = '*,libro:libros(id,titulo,autor,caratula,caratula_url,stock),usuario:usuarios(id,username,email)';
                 const url = userRole === 'admin'
-                    ? `${localApi}/prestamos?order=created_at.desc`
-                    : `${localApi}/prestamos?usuario_id=eq.${userId}&order=created_at.desc`;
+                    ? `${localApi}/prestamos?select=${select}&order=created_at.desc`
+                    : `${localApi}/prestamos?select=${select}&usuario_id=eq.${userId}&order=created_at.desc`;
 
                 const res = await fetch(url);
                 if (res.ok) {
@@ -71,7 +73,8 @@ export const usePrestamos = (userId: string | undefined, userRole: 'admin' | 'us
                     .from('prestamos')
                     .select(`
                         *,
-                        libro:libros(id, titulo, autor, caratula, caratula_url, stock)
+                        libro:libros(id, titulo, autor, caratula, caratula_url, stock),
+                        usuario:usuarios(id, username, email)
                     `)
                     .order('created_at', { ascending: false });
 

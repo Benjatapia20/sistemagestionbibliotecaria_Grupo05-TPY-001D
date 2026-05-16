@@ -45,7 +45,12 @@ export const PrestamosLista = ({
 
     const filteredPrestamos = useMemo(() => {
         return prestamos.filter(p => {
-            const matchesSearch = p.libro?.titulo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            const libroTitulo = p.libro?.titulo?.toLowerCase() || '';
+            const usuarioNombre = p.usuario?.username?.toLowerCase() || '';
+            const usuarioEmail = p.usuario?.email?.toLowerCase() || '';
+            const matchesSearch = libroTitulo.includes(searchTerm.toLowerCase()) ||
+                usuarioNombre.includes(searchTerm.toLowerCase()) ||
+                usuarioEmail.includes(searchTerm.toLowerCase()) ||
                 p.usuario_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 p.id?.includes(searchTerm);
             const matchesFilter = filterEstado === 'todos' || p.estado === filterEstado;
@@ -135,7 +140,7 @@ export const PrestamosLista = ({
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                     <input
                         type="text"
-                        placeholder="Buscar por libro, usuario o ID..."
+                        placeholder="Buscar por libro, usuario, correo o ID..."
                         className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -183,7 +188,7 @@ export const PrestamosLista = ({
                                                 </span>
                                             </div>
                                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
-                                                <span>Usuario: {prestamo.usuario_id}</span>
+                                                <span>Usuario: {prestamo.usuario?.username || prestamo.usuario?.email || prestamo.usuario_id}</span>
                                                 <span className="flex items-center gap-1">
                                                     <Calendar className="w-3 h-3" />
                                                     Dev: {fechaEsperada.toLocaleDateString('es-CL')}

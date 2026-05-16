@@ -12,8 +12,14 @@ export const AgregarLibro = ({ onLibroAgregado, onCancel }: Props) => {
     titulo: "",
     autor: "",
     isbn: "",
-    stock: 1,
     genero: "",
+    stock: 1,
+    editorial: "",
+    anio_publication: "",
+    sinopsis: "",
+    idioma: "Español",
+    paginas: "",
+    ubicacion: "",
     caratula: "",
   });
 
@@ -40,8 +46,10 @@ export const AgregarLibro = ({ onLibroAgregado, onCancel }: Props) => {
 
       // La subida de imagen y el registro del libro SIEMPRE son locales
       if (caratulaFinal && caratulaFinal.startsWith("data:image")) {
-        const imagesBaseUrl = import.meta.env.VITE_IMAGES_URL || `http://${window.location.hostname}:3001`;
-        
+        const imagesBaseUrl =
+          import.meta.env.VITE_IMAGES_URL ||
+          `http://${window.location.hostname}:3001`;
+
         const uploadResponse = await fetch(`${imagesBaseUrl}/upload`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -57,24 +65,50 @@ export const AgregarLibro = ({ onLibroAgregado, onCancel }: Props) => {
         }
       }
 
-      const response = await fetch(`${import.meta.env.VITE_LOCAL_API_URL}/libros`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Prefer: "return=representation",
+      const response = await fetch(
+        `${import.meta.env.VITE_LOCAL_API_URL}/libros`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({
+            ...libro,
+            caratula: caratulaFinal,
+            stock: parseInt(String(libro.stock)) || 0,
+            anio_publication: libro.anio_publication
+              ? parseInt(libro.anio_publication)
+              : null,
+            paginas: libro.paginas ? parseInt(libro.paginas) : null,
+          }),
+          signal: controller.signal,
         },
-        body: JSON.stringify({ ...libro, caratula: caratulaFinal }),
-        signal: controller.signal,
-      });
+      );
 
       if (!response.ok) throw new Error("Error en servidor local");
 
       clearTimeout(timeoutId);
-      setLibro({ titulo: "", autor: "", isbn: "", stock: 1, genero: "", caratula: "" });
+      setLibro({
+        titulo: "",
+        autor: "",
+        isbn: "",
+        genero: "",
+        stock: 1,
+        editorial: "",
+        anio_publication: "",
+        sinopsis: "",
+        idioma: "Español",
+        paginas: "",
+        ubicacion: "",
+        caratula: "",
+      });
       onLibroAgregado();
     } catch (error) {
       console.error("Error al guardar libro localmente:", error);
-      alert("Error al guardar el libro en el servidor local. Verifica la conexión.");
+      alert(
+        "Error al guardar el libro en el servidor local. Verifica la conexión.",
+      );
     } finally {
       setLoading(false);
     }
@@ -88,7 +122,7 @@ export const AgregarLibro = ({ onLibroAgregado, onCancel }: Props) => {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
           <PlusCircle className="w-6 h-6" />
-          <h3 className="font-bold text-xl">Nuevo Ingreso</h3>
+          <h3 className="font-bold text-xl">NUEVO INGRESO</h3>
         </div>
         {onCancel && (
           <button
@@ -101,53 +135,143 @@ export const AgregarLibro = ({ onLibroAgregado, onCancel }: Props) => {
         )}
       </div>
 
-      <div className="flex flex-col gap-4">
-        <input
-          type="text"
-          placeholder="Título del libro"
-          required
-          className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-          value={libro.titulo}
-          onChange={(e) => setLibro({ ...libro, titulo: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Autor"
-          className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-          value={libro.autor}
-          onChange={(e) => setLibro({ ...libro, autor: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Género literario"
-          className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-          value={libro.genero}
-          onChange={(e) => setLibro({ ...libro, genero: e.target.value })}
-        />
-        <div className="flex gap-4">
+      <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-2">
+        {/* INFORMACIÓN BÁSICA */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            INFORMACIÓN BÁSICA
+          </h4>
+
           <input
             type="text"
-            placeholder="ISBN"
-            className="flex-1 bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-            value={libro.isbn}
-            onChange={(e) => setLibro({ ...libro, isbn: e.target.value })}
+            placeholder="TÍTULO DEL LIBRO *"
+            required
+            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+            value={libro.titulo}
+            onChange={(e) => setLibro({ ...libro, titulo: e.target.value })}
           />
           <input
-            type="number"
-            min="1"
-            placeholder="Stock"
-            className="w-24 bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-            value={libro.stock}
-            onChange={(e) =>
-              setLibro({ ...libro, stock: parseInt(e.target.value) || 1 })
-            }
+            type="text"
+            placeholder="AUTOR"
+            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+            value={libro.autor}
+            onChange={(e) => setLibro({ ...libro, autor: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder="GÉNERO LITERARIO"
+            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+            value={libro.genero}
+            onChange={(e) => setLibro({ ...libro, genero: e.target.value })}
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-            Carátula del libro (Imagen)
-          </label>
+        {/* CLASIFICACIÓN */}
+        <div className="space-y-4 pt-2 border-t border-slate-200 dark:border-slate-700">
+          <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            CLASIFICACIÓN
+          </h4>
+
+          <input
+            type="text"
+            placeholder="ISBN"
+            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+            value={libro.isbn}
+            onChange={(e) => setLibro({ ...libro, isbn: e.target.value })}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <input
+              type="number"
+              min="0"
+              placeholder="STOCK"
+              className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+              value={libro.stock}
+              onChange={(e) =>
+                setLibro({ ...libro, stock: parseInt(e.target.value) || 0 })
+              }
+            />
+            <input
+              type="text"
+              placeholder="UBICACIÓN (Ej: Estante A1)"
+              className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+              value={libro.ubicacion}
+              onChange={(e) =>
+                setLibro({ ...libro, ubicacion: e.target.value })
+              }
+            />
+          </div>
+        </div>
+
+        {/* DETALLES DE PUBLICACIÓN */}
+        <div className="space-y-4 pt-2 border-t border-slate-200 dark:border-slate-700">
+          <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            DETALLES DE PUBLICACIÓN
+          </h4>
+
+          <input
+            type="text"
+            placeholder="EDITORIAL"
+            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+            value={libro.editorial}
+            onChange={(e) => setLibro({ ...libro, editorial: e.target.value })}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <input
+              type="number"
+              min="1000"
+              max={new Date().getFullYear()}
+              placeholder="AÑO DE PUBLICACIÓN"
+              className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+              value={libro.anio_publication}
+              onChange={(e) =>
+                setLibro({ ...libro, anio_publication: e.target.value })
+              }
+            />
+            <input
+              type="number"
+              min="1"
+              placeholder="NÚMERO DE PÁGINAS"
+              className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+              value={libro.paginas}
+              onChange={(e) => setLibro({ ...libro, paginas: e.target.value })}
+            />
+          </div>
+          <select
+            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+            value={libro.idioma}
+            onChange={(e) => setLibro({ ...libro, idioma: e.target.value })}
+          >
+            <option value="Español">ESPAÑOL</option>
+            <option value="Inglés">INGLÉS</option>
+            <option value="Francés">FRANCÉS</option>
+            <option value="Portugués">PORTUGUÉS</option>
+            <option value="Alemán">ALEMÁN</option>
+            <option value="Italiano">ITALIANO</option>
+            <option value="Otro">OTRO</option>
+          </select>
+        </div>
+
+        {/* SINOPSIS */}
+        <div className="space-y-4 pt-2 border-t border-slate-200 dark:border-slate-700">
+          <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            SINOPSIS
+          </h4>
+
+          <textarea
+            placeholder="Descripción o sinopsis del libro..."
+            rows={4}
+            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow resize-none"
+            value={libro.sinopsis}
+            onChange={(e) => setLibro({ ...libro, sinopsis: e.target.value })}
+          />
+        </div>
+
+        {/* CARÁTULA */}
+        <div className="space-y-4 pt-2 border-t border-slate-200 dark:border-slate-700">
+          <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            CARÁTULA
+          </h4>
+
           <div className="flex items-center justify-center w-full">
             <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-800/50 hover:bg-slate-100 dark:border-slate-700 dark:hover:border-slate-600 overflow-hidden relative transition-colors">
               {libro.caratula ? (
@@ -191,6 +315,7 @@ export const AgregarLibro = ({ onLibroAgregado, onCancel }: Props) => {
           </div>
         </div>
 
+        {/* BOTÓN ENVIAR */}
         <button
           type="submit"
           disabled={loading}
@@ -199,7 +324,7 @@ export const AgregarLibro = ({ onLibroAgregado, onCancel }: Props) => {
           {loading ? (
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
-            "Registrar Libro"
+            "REGISTRAR LIBRO"
           )}
         </button>
       </div>

@@ -60,13 +60,11 @@ function App() {
   const [libroSeleccionadoFull, setLibroSeleccionadoFull] = useState<any | null>(null);
   const [libroSolicitando, setLibroSolicitando] = useState<Libro | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  
-  const isTempSession = (session?.user as any)?.isTemp;
-  const userId = isTempSession
-    ? (session?.user as any)?.username || (session?.user as any)?.email?.split('@')[0]
-    : session?.user?.id;
 
-  const { favoritos, toggleFavorite } = useFavorites(session?.user?.id, useLocal);
+  const isTempSession = (session?.user as any)?.isTemp;
+  const userId = session?.user?.id;
+
+  const { favoritos, toggleFavorite } = useFavorites(userId, useLocal);
   const {
     prestamos,
     config,
@@ -218,7 +216,7 @@ function App() {
   const fetchUserRole = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('usuarios')
         .select('rol')
         .eq('id', userId)
         .single();
@@ -226,18 +224,16 @@ function App() {
       if (data && !error) {
         setUserRole(data.rol);
         localStorage.setItem("biblio_role", data.rol);
-      } else {
-        console.error('[Auth] Error fetching role from Supabase:', error);
       }
     } catch (err) {
-      console.error("[Auth] Error fetching role:", err);
+      console.error("[Auth] Error fetching role from Supabase:", err);
     }
   };
 
-  const fetchLocalUserRole = async (username: string) => {
+  const fetchLocalUserRole = async (userId: string) => {
     try {
       const localApi = import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:3000';
-      const res = await fetch(`${localApi}/cuentas_temporales?username=eq.${username}`);
+      const res = await fetch(`${localApi}/usuarios?id=eq.${userId}`);
       if (res.ok) {
         const users = await res.json();
         if (users.length > 0) {
@@ -245,11 +241,9 @@ function App() {
           setUserRole(rol);
           localStorage.setItem("biblio_role", rol);
         } else {
-          console.warn('[Auth] Usuario no encontrado en cuentas_temporales:', username);
           setUserRole('usuario');
         }
       } else {
-        console.error('[Auth] Error fetching from local API:', res.status);
         setUserRole('usuario');
       }
     } catch (err) {
@@ -264,11 +258,10 @@ function App() {
       try {
         const parsed = JSON.parse(tempSession);
         setSession(parsed as any);
-        const username = parsed.user?.username;
-        if (username) {
-          await fetchLocalUserRole(username);
+        const uid = parsed.user?.id;
+        if (uid) {
+          await fetchLocalUserRole(uid);
         } else {
-          console.warn('[Auth] No se pudo extraer username de la sesión');
           setUserRole('usuario');
         }
       } catch (e) {
@@ -475,7 +468,7 @@ function App() {
               <ListaLibros 
                 key={`fav-${refreshKey}`} 
                 showFavoritesOnly={true} 
-                userId={session?.user?.id} 
+                userId={userId} 
                 useLocal={useLocal} 
                 onVerMas={handleVerMas}
               />
@@ -487,7 +480,7 @@ function App() {
             <ListaLibros 
               key={`cat-${refreshKey}`} 
               onDataLoaded={setTotalLibros} 
-              userId={session?.user?.id} 
+              userId={userId} 
               useLocal={useLocal} 
               onVerMas={handleVerMas}
               onSolicitarPrestamo={(libro) => setLibroSolicitando(libro)}
@@ -504,7 +497,7 @@ function App() {
 
               {(session?.user as any)?.isTemp && (
                 <VerificarCuenta
-                  username={session?.user?.email?.split('@')[0] || ''}
+                  username={(session?.user as any)?.username || session?.user?.email?.split('@')[0] || ''}
                   currentRole={userRole}
                   onVerified={() => window.location.reload()}
                 />
@@ -518,7 +511,7 @@ function App() {
                     </div>
                     <div>
                       <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Cuenta Activa</p>
-                      <p className="font-semibold text-slate-900 dark:text-white">{session.user.email}</p>
+                      <p className="font-semibold text-slate-900 dark:text-white">{session.user.email || (session?.user as any)?.username}</p>
                     </div>
                   </div>
                 </div>

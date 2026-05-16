@@ -29,7 +29,7 @@ export default function Login() {
                     if (error) throw error;
                 } else {
                     const localApi = import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:3000';
-                    const res = await fetch(`${localApi}/cuentas_temporales?username=eq.${identifier}`);
+                    const res = await fetch(`${localApi}/usuarios?username=eq.${identifier}&tipo_auth=eq.local`);
                     if (!res.ok) throw new Error('No se pudo conectar con el servidor local');
 
                     const users = await res.json();
@@ -41,12 +41,11 @@ export default function Login() {
                         throw new Error('Contraseña incorrecta');
                     }
 
-                    // Guardar sesión temporal con username explícito
                     localStorage.setItem("biblio_temp_session", JSON.stringify({
                         user: {
-                            id: userData.id || userData.username,
+                            id: userData.id,
                             username: userData.username,
-                            email: `${userData.username}@local`,
+                            email: userData.email || `${userData.username}@local`,
                             isTemp: true
                         }
                     }));
@@ -68,11 +67,12 @@ export default function Login() {
                     const newUser = {
                         username: identifier,
                         password: hashedPassword,
-                        rol: 'usuario'
+                        rol: 'usuario',
+                        tipo_auth: 'local'
                     };
 
                     const localApi = import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:3000';
-                    const response = await fetch(`${localApi}/cuentas_temporales`, {
+                    const response = await fetch(`${localApi}/usuarios`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -85,6 +85,20 @@ export default function Login() {
                         const errorData = await response.json().catch(() => ({}));
                         throw new Error(`Error ${response.status}: ${errorData.message || "No se pudo crear la cuenta."}`);
                     }
+
+                    // También crear en cuentas_temporales para compatibilidad
+                    await fetch(`${localApi}/cuentas_temporales`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({
+                            username: identifier,
+                            password: hashedPassword,
+                            rol: 'usuario'
+                        })
+                    }).catch(() => {});
 
                     alert('Cuenta creada. Ya puedes iniciar sesión.');
                     setMode('login');

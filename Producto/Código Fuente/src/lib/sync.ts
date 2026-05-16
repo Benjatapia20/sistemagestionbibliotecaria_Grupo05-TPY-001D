@@ -144,7 +144,7 @@ async function sincronizarUsuarios(): Promise<number> {
     let sincronizados = 0;
 
     try {
-        const res = await fetch(`${localApi}/cuentas_temporales`);
+        const res = await fetch(`${localApi}/usuarios`);
         const usuariosLocales = await res.json();
 
         if (!usuariosLocales || usuariosLocales.length === 0) return 0;
@@ -152,13 +152,17 @@ async function sincronizarUsuarios(): Promise<number> {
         for (const usuario of usuariosLocales) {
             console.log(`[Sync] Sincronizando usuario: ${usuario.username}`);
             const { error } = await supabase
-                .from('cuentas_temporales')
+                .from('usuarios')
                 .upsert({
+                    id: usuario.id,
                     username: usuario.username,
-                    password: usuario.password,
+                    email: usuario.email,
                     rol: usuario.rol,
+                    tipo_auth: usuario.tipo_auth,
+                    auth_ref_id: usuario.auth_ref_id,
+                    activo: usuario.activo,
                     created_at: usuario.created_at
-                }, { onConflict: 'username' });
+                }, { onConflict: 'id' });
             
             if (error) {
                 console.error(`[Sync] Error con usuario ${usuario.username}:`, error.message);
