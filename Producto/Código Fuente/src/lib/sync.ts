@@ -49,6 +49,11 @@ const syncCaratulaToSupabase = async (caratulaLocalPath: string): Promise<string
 
 export const sincronizarConNube = async (): Promise<{ success: boolean; message: string }> => {
     try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            return { success: false, message: 'Debes verificar tu cuenta con correo para sincronizar.' };
+        }
+
         let librosParaSincronizar: any[] = [];
         let servidorLocalDisponible = false;
         let librosSubidos = 0;

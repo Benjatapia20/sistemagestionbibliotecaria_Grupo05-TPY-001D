@@ -18,7 +18,6 @@ export const VerificarCuenta = ({ username, currentRole, onVerified }: Verificar
         setLoading(true);
 
         try {
-            // 1. Registrar en Supabase Auth Oficial
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
@@ -33,18 +32,6 @@ export const VerificarCuenta = ({ username, currentRole, onVerified }: Verificar
             if (authError) throw authError;
 
             if (authData.user) {
-                // 2. Vincular la cuenta temporal con el nuevo Auth ID en la nube
-                const { error: updateError } = await supabase
-                    .from('cuentas_temporales')
-                    .update({
-                        auth_id: authData.user.id,
-                        email: email // Guardamos el email para referencia
-                    })
-                    .eq('username', username);
-
-                if (updateError) console.error("Error vinculando cuenta:", updateError);
-
-                // 3. También actualizamos el rol en la tabla de perfiles (que se crea por trigger)
                 const { error: profileError } = await supabase
                     .from('profiles')
                     .update({ rol: currentRole })
@@ -52,11 +39,20 @@ export const VerificarCuenta = ({ username, currentRole, onVerified }: Verificar
 
                 if (profileError) console.error("Error actualizando perfil:", profileError);
 
-                alert('¡Casi listo! Se ha enviado un correo de confirmación a ' + email + '. Una vez que confirmes, podrás entrar con tu correo.');
+                const { error: updateError } = await supabase
+                    .from('cuentas_temporales')
+                    .update({
+                        auth_id: authData.user.id,
+                        email: email
+                    })
+                    .eq('username', username);
 
-                // Limpiamos la sesión temporal
+                if (updateError) console.error("Error vinculando cuenta:", updateError);
+
                 localStorage.removeItem("biblio_temp_session");
                 localStorage.removeItem("biblio_role");
+                
+                alert('¡Cuenta verificada! Ahora puedes iniciar sesión con tu correo.');
                 onVerified();
             }
         } catch (error: any) {
