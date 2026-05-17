@@ -21,20 +21,25 @@ export const useFavorites = (userId: string | undefined, useLocal: boolean) => {
                 const res = await fetch(`${localApi}/favoritos?usuario_id=eq.${userId}`);
                 if (res.ok) {
                     const data: Favorito[] = await res.json();
+                    console.log('[DEBUG useFavorites] Local:', data.length, 'favs, userId:', userId);
                     setFavoritos(new Set(data.map(f => f.libro_id)));
+                } else {
+                    console.error('[DEBUG useFavorites] Local fetch error:', res.status);
                 }
             } else {
+                console.log('[DEBUG useFavorites] Supabase fetch, userId:', userId);
                 const { data, error } = await supabase
                     .from('favoritos')
                     .select('libro_id')
                     .eq('usuario_id', userId);
                 
+                console.log('[DEBUG useFavorites] Supabase result:', data?.length, 'favs, error:', error?.message || 'none');
                 if (!error && data) {
                     setFavoritos(new Set(data.map(f => f.libro_id)));
                 }
             }
         } catch (error) {
-            console.error('Error fetching favorites:', error);
+            console.error('[DEBUG useFavorites] Error:', error);
         } finally {
             setLoading(false);
         }

@@ -69,6 +69,7 @@ export const usePrestamos = (userId: string | undefined, userRole: 'admin' | 'us
                     ).length);
                 }
             } else {
+                console.log('[DEBUG usePrestamos] Supabase fetch, userId:', userId, 'userRole:', userRole);
                 let query = supabase
                     .from('prestamos')
                     .select(`
@@ -83,6 +84,7 @@ export const usePrestamos = (userId: string | undefined, userRole: 'admin' | 'us
                 }
 
                 const { data, error } = await query;
+                console.log('[DEBUG usePrestamos] Supabase result:', data?.length, 'prestamos, error:', error?.message || 'none');
                 if (!error && data) {
                     const processedData = data.map(p => verificarVencimiento(p));
                     setPrestamos(processedData);

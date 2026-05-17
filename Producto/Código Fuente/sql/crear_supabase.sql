@@ -164,24 +164,49 @@ ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
 -- TRIGGERS PARA SINCRONIZAR AUTH.USERS CON USUARIOS
 -- =====================================================================
 
--- Trigger: crear usuario en tabla usuarios al registrarse en Supabase
+-- Trigger: crear/actualizar usuario en tabla usuarios al registrarse en Supabase
+-- Mantiene el mismo id si ya existe un usuario con el mismo username
+-- Así se preservan favoritos, préstamos y demás datos
 CREATE OR REPLACE FUNCTION sync_auth_to_usuarios()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_username TEXT;
+    v_existing_id UUID;
 BEGIN
-    INSERT INTO public.usuarios (id, email, username, tipo_auth, auth_ref_id, rol)
-    VALUES (
-        NEW.id,
-        NEW.email,
-        COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1)),
-        'supabase',
-        NEW.id::text,
-        COALESCE(NEW.raw_user_meta_data->>'old_role', 'usuario')
-    )
-    ON CONFLICT (id) DO UPDATE SET
-        email = EXCLUDED.email,
-        username = COALESCE(EXCLUDED.username, split_part(EXCLUDED.email, '@', 1)),
-        updated_at = NOW();
+    v_username := COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1));
 
+    -- Buscar si ya existe un usuario con este username (cuenta local verificada)
+    SELECT id INTO v_existing_id
+    FROM public.usuarios
+    WHERE username = v_username;
+
+    IF v_existing_id IS NOT NULL THEN
+        -- Usuario local existente: actualizarlo manteniendo el mismo id
+        UPDATE public.usuarios
+        SET
+            email = NEW.email,
+            tipo_auth = 'supabase',
+            auth_ref_id = NEW.id::text,
+            rol = COALESCE(NEW.raw_user_meta_data->>'old_role', rol),
+            updated_at = NOW()
+        WHERE id = v_existing_id;
+    ELSE
+        -- Usuario nuevo: crear con el id de auth.users
+        INSERT INTO public.usuarios (id, email, username, tipo_auth, auth_ref_id, rol)
+        VALUES (
+            NEW.id,
+            NEW.email,
+            v_username,
+            'supabase',
+            NEW.id::text,
+            COALESCE(NEW.raw_user_meta_data->>'old_role', 'usuario')
+        );
+    END IF;
+
+    RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    -- Si falla, loguear y permitir que el registro en auth.users continúe
+    RAISE WARNING 'sync_auth_to_usuarios error: %', SQLERRM;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -200,6 +225,9 @@ BEGIN
     VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'old_role', 'usuario'))
     ON CONFLICT (id) DO NOTHING;
     RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'handle_new_user error: %', SQLERRM;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -217,6 +245,9 @@ BEGIN
     SET rol = NEW.rol, updated_at = NOW()
     WHERE auth_ref_id = NEW.id::text OR id = NEW.usuario_id;
     RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'sync_profiles_rol error: %', SQLERRM;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -230,6 +261,31 @@ CREATE TRIGGER sync_profiles_rol_trigger
 -- FUNCIÓN is_admin() UNIFICADA
 -- =====================================================================
 
+-- Función auxiliar: obtiene el usuarios.id correcto para el auth.uid() actual
+-- Maneja tanto usuarios directos de Supabase como usuarios locales verificados
+CREATE OR REPLACE FUNCTION public.get_usuario_id()
+RETURNS UUID AS $$
+DECLARE
+    v_uid UUID;
+    v_usuario_id UUID;
+BEGIN
+    v_uid := auth.uid();
+    IF v_uid IS NULL THEN
+        RETURN NULL;
+    END IF;
+
+    -- Primero buscar por id directo (usuarios creados directamente en Supabase)
+    SELECT id INTO v_usuario_id FROM public.usuarios WHERE id = v_uid;
+
+    -- Si no encuentra, buscar por auth_ref_id (usuarios locales verificados)
+    IF v_usuario_id IS NULL THEN
+        SELECT id INTO v_usuario_id FROM public.usuarios WHERE auth_ref_id = v_uid::text;
+    END IF;
+
+    RETURN v_usuario_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -240,8 +296,8 @@ BEGIN
         RETURN FALSE;
     END IF;
 
-    -- Verificar en usuarios (tabla principal)
-    IF EXISTS (SELECT 1 FROM public.usuarios WHERE id = v_uid AND rol = 'admin') THEN
+    -- Verificar en usuarios (tabla principal) - buscar por id o auth_ref_id
+    IF EXISTS (SELECT 1 FROM public.usuarios WHERE (id = v_uid OR auth_ref_id = v_uid::text) AND rol = 'admin') THEN
         RETURN TRUE;
     END IF;
 
@@ -323,11 +379,16 @@ ALTER TABLE public.usuarios ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Usuarios pueden ver su propio perfil" ON public.usuarios;
 CREATE POLICY "Usuarios pueden ver su propio perfil" ON public.usuarios FOR SELECT
-    USING (auth.uid() = id OR public.is_admin());
+    USING (id = auth.uid() OR auth_ref_id = auth.uid()::text OR public.is_admin());
 
 DROP POLICY IF EXISTS "Usuarios pueden actualizar su propio perfil" ON public.usuarios;
 CREATE POLICY "Usuarios pueden actualizar su propio perfil" ON public.usuarios FOR UPDATE
-    USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+    USING (id = auth.uid() OR auth_ref_id = auth.uid()::text)
+    WITH CHECK (id = auth.uid() OR auth_ref_id = auth.uid()::text);
+
+DROP POLICY IF EXISTS "Usuarios autenticados pueden insertar perfil" ON public.usuarios;
+CREATE POLICY "Usuarios autenticados pueden insertar perfil" ON public.usuarios FOR INSERT
+    WITH CHECK (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Admins pueden gestionar usuarios" ON public.usuarios;
 CREATE POLICY "Admins pueden gestionar usuarios" ON public.usuarios FOR ALL
@@ -348,34 +409,67 @@ ALTER TABLE public.favoritos ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Usuarios pueden ver sus propios favoritos" ON public.favoritos;
 CREATE POLICY "Usuarios pueden ver sus propios favoritos" ON public.favoritos FOR SELECT
-    USING (auth.uid() = usuario_id);
+    USING (
+        usuario_id = auth.uid()
+        OR usuario_id IN (SELECT id FROM public.usuarios WHERE auth_ref_id = auth.uid()::text)
+    );
 
 DROP POLICY IF EXISTS "Usuarios pueden insertar sus propios favoritos" ON public.favoritos;
 CREATE POLICY "Usuarios pueden insertar sus propios favoritos" ON public.favoritos FOR INSERT
-    WITH CHECK (auth.uid() = usuario_id);
+    WITH CHECK (
+        usuario_id = auth.uid()
+        OR usuario_id IN (SELECT id FROM public.usuarios WHERE auth_ref_id = auth.uid()::text)
+    );
 
 DROP POLICY IF EXISTS "Usuarios pueden eliminar sus propios favoritos" ON public.favoritos;
 CREATE POLICY "Usuarios pueden eliminar sus propios favoritos" ON public.favoritos FOR DELETE
-    USING (auth.uid() = usuario_id);
+    USING (
+        usuario_id = auth.uid()
+        OR usuario_id IN (SELECT id FROM public.usuarios WHERE auth_ref_id = auth.uid()::text)
+    );
+
+DROP POLICY IF EXISTS "Admins pueden gestionar favoritos" ON public.favoritos;
+CREATE POLICY "Admins pueden gestionar favoritos" ON public.favoritos FOR ALL
+    USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- --- PRÉSTAMOS ---
 ALTER TABLE public.prestamos ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Usuarios pueden ver sus propios préstamos" ON public.prestamos;
 CREATE POLICY "Usuarios pueden ver sus propios préstamos" ON public.prestamos FOR SELECT
-    USING (auth.uid() = usuario_id);
+    USING (
+        usuario_id = auth.uid()
+        OR usuario_id IN (SELECT id FROM public.usuarios WHERE auth_ref_id = auth.uid()::text)
+    );
 
 DROP POLICY IF EXISTS "Usuarios pueden solicitar préstamos" ON public.prestamos;
 CREATE POLICY "Usuarios pueden solicitar préstamos" ON public.prestamos FOR INSERT
-    WITH CHECK (auth.uid() = usuario_id);
+    WITH CHECK (
+        usuario_id = auth.uid()
+        OR usuario_id IN (SELECT id FROM public.usuarios WHERE auth_ref_id = auth.uid()::text)
+    );
 
 DROP POLICY IF EXISTS "Usuarios pueden solicitar devolucion" ON public.prestamos;
 CREATE POLICY "Usuarios pueden solicitar devolucion" ON public.prestamos FOR UPDATE
-    USING (auth.uid() = usuario_id) WITH CHECK (auth.uid() = usuario_id);
+    USING (
+        usuario_id = auth.uid()
+        OR usuario_id IN (SELECT id FROM public.usuarios WHERE auth_ref_id = auth.uid()::text)
+    )
+    WITH CHECK (
+        usuario_id = auth.uid()
+        OR usuario_id IN (SELECT id FROM public.usuarios WHERE auth_ref_id = auth.uid()::text)
+    );
 
 DROP POLICY IF EXISTS "Usuarios pueden solicitar renovacion" ON public.prestamos;
 CREATE POLICY "Usuarios pueden solicitar renovacion" ON public.prestamos FOR UPDATE
-    USING (auth.uid() = usuario_id) WITH CHECK (auth.uid() = usuario_id);
+    USING (
+        usuario_id = auth.uid()
+        OR usuario_id IN (SELECT id FROM public.usuarios WHERE auth_ref_id = auth.uid()::text)
+    )
+    WITH CHECK (
+        usuario_id = auth.uid()
+        OR usuario_id IN (SELECT id FROM public.usuarios WHERE auth_ref_id = auth.uid()::text)
+    );
 
 DROP POLICY IF EXISTS "Admins pueden ver todos los préstamos" ON public.prestamos;
 CREATE POLICY "Admins pueden ver todos los préstamos" ON public.prestamos FOR SELECT

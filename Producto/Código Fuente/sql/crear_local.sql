@@ -236,7 +236,7 @@ GRANT EXECUTE ON FUNCTION registrar_usuario_local(TEXT, TEXT, TEXT) TO web_anon;
 
 -- Admin (password: admin123)
 INSERT INTO public.usuarios (username, email, nombre_completo, password, rol, tipo_auth) VALUES
-('admin', 'admin@biblioteca.local', 'Administrador', '$2b$10$iB2jJLSMw9Bk228GEYtBP.ZaNZAvuMLquOW8WrGf4kvxSE/5gkkoe', 'admin', 'local');
+('admin', 'admin@biblioteca.local', 'Administrador', '$2b$10$Ui5xGuKqwBt0dNMNaNxaiOlJro8X4aH1wCZtGaXbKT5.maA9TQlGi', 'admin', 'local');
 
 -- Vincular con cuentas_temporales
 INSERT INTO public.cuentas_temporales (username, password, rol, email, usuario_id)

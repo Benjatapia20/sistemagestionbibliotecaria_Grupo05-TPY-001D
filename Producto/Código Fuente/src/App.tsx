@@ -62,9 +62,14 @@ function App() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const isTempSession = (session?.user as any)?.isTemp;
-  const userId = session?.user?.id;
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
+  const userId = isTempSession ? session?.user?.id : (resolvedUserId || session?.user?.id);
 
-  const { favoritos, toggleFavorite } = useFavorites(userId, useLocal);
+  // Forzar modo local si no hay sesión de Supabase
+  const hasSupabaseSession = !isTempSession && !!session;
+  const effectiveUseLocal = hasSupabaseSession ? useLocal : true;
+
+  const { favoritos, toggleFavorite } = useFavorites(userId, effectiveUseLocal);
   const {
     prestamos,
     config,
@@ -80,7 +85,7 @@ function App() {
     aprobarRenovacion,
     rechazarRenovacion,
     refreshPrestamos
-  } = usePrestamos(userId, userRole, useLocal);
+  } = usePrestamos(userId, userRole, effectiveUseLocal);
 
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem("biblio_activeTab") || "dashboard";
@@ -208,6 +213,7 @@ function App() {
     localStorage.removeItem("biblio_role");
     localStorage.removeItem("biblio_temp_session");
     localStorage.removeItem("biblio_activeTab");
+    setResolvedUserId(null);
     setActiveTab("dashboard");
     setUserRole("usuario");
     window.location.reload();
@@ -215,19 +221,36 @@ function App() {
 
   const fetchUserRole = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      console.log('[DEBUG fetchUserRole] Buscando por id:', userId);
+      let { data, error } = await supabase
         .from('usuarios')
-        .select('rol')
+        .select('rol, id, auth_ref_id, tipo_auth')
         .eq('id', userId)
         .single();
 
+      if (!data || error) {
+        console.log('[DEBUG fetchUserRole] No encontrado por id, buscando por auth_ref_id:', userId);
+        const result = await supabase
+          .from('usuarios')
+          .select('rol, id, auth_ref_id, tipo_auth')
+          .eq('auth_ref_id', userId)
+          .single();
+        data = result.data;
+        error = result.error;
+      }
+
       if (data && !error) {
+        console.log('[DEBUG fetchUserRole] Encontrado:', data);
         setUserRole(data.rol);
         localStorage.setItem("biblio_role", data.rol);
+        return data.id;
+      } else {
+        console.error('[DEBUG fetchUserRole] Error o no encontrado:', error);
       }
     } catch (err) {
-      console.error("[Auth] Error fetching role from Supabase:", err);
+      console.error("[DEBUG fetchUserRole] Exception:", err);
     }
+    return userId;
   };
 
   const fetchLocalUserRole = async (userId: string) => {
@@ -275,26 +298,29 @@ function App() {
   };
 
   useEffect(() => {
+    const initSession = async (sess: any) => {
+      if (sess) {
+        setSession(sess);
+        console.log('[DEBUG initSession] Supabase session, auth.uid():', sess.user.id);
+        const resolvedId = await fetchUserRole(sess.user.id);
+        console.log('[DEBUG initSession] resolvedUserId:', resolvedId);
+        setResolvedUserId(resolvedId);
+        setCheckingAuth(false);
+      } else {
+        console.log('[DEBUG initSession] No Supabase session, trying local');
+        await initLocalSession();
+        setCheckingAuth(false);
+      }
+    };
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setSession(session);
-        fetchUserRole(session.user.id);
-        setCheckingAuth(false);
-      } else {
-        initLocalSession().then(() => setCheckingAuth(false));
-      }
+      initSession(session);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setSession(session);
-        fetchUserRole(session.user.id);
-        setCheckingAuth(false);
-      } else {
-        initLocalSession().then(() => setCheckingAuth(false));
-      }
+      initSession(session);
     });
 
     return () => subscription.unsubscribe();
@@ -469,7 +495,7 @@ function App() {
                 key={`fav-${refreshKey}`} 
                 showFavoritesOnly={true} 
                 userId={userId} 
-                useLocal={useLocal} 
+                useLocal={effectiveUseLocal} 
                 onVerMas={handleVerMas}
               />
             )}
@@ -481,7 +507,7 @@ function App() {
               key={`cat-${refreshKey}`} 
               onDataLoaded={setTotalLibros} 
               userId={userId} 
-              useLocal={useLocal} 
+              useLocal={effectiveUseLocal} 
               onVerMas={handleVerMas}
               onSolicitarPrestamo={(libro) => setLibroSolicitando(libro)}
               tienePrestamoActivo={tienePrestamoActivo}
@@ -497,9 +523,10 @@ function App() {
 
               {(session?.user as any)?.isTemp && (
                 <VerificarCuenta
+                  userId={session?.user?.id || ''}
                   username={(session?.user as any)?.username || session?.user?.email?.split('@')[0] || ''}
                   currentRole={userRole}
-                  onVerified={() => window.location.reload()}
+                  onVerified={() => setRefreshKey(prev => prev + 1)}
                 />
               )}
 
@@ -610,7 +637,7 @@ function App() {
         <ModalSolicitarPrestamo
           libro={libroSolicitando}
           userId={userId}
-          useLocal={useLocal}
+          useLocal={effectiveUseLocal}
           onSolicitar={handleSolicitarPrestamo}
           onSuccess={() => {
             showToast('Préstamo solicitado correctamente', 'success');
