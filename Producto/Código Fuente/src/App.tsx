@@ -19,6 +19,8 @@ import { PrestamosLista } from "./components/PrestamosLista";
 import { MisPrestamos } from "./components/MisPrestamos";
 import { PrestamosDashboard } from "./components/PrestamosDashboard";
 import { ModalSolicitarPrestamo } from "./components/ModalSolicitarPrestamo";
+import { useChatbot } from "./hooks/useChatbot";
+import { ChatPanel } from "./components/ChatPanel";
 import {
   Sun,
   Moon,
@@ -63,6 +65,7 @@ function App() {
   const [libroSeleccionadoFull, setLibroSeleccionadoFull] = useState<any | null>(null);
   const [libroSolicitando, setLibroSolicitando] = useState<Libro | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [catalogo, setCatalogo] = useState<{ titulo: string; autor: string; genero: string; stock: number; id: number }[]>([]);
 
   const isTempSession = (session?.user as any)?.isTemp;
   const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
@@ -92,6 +95,28 @@ function App() {
 
   const { queueCount } = useOfflineQueue();
   const { autoSync, toggleAutoSync, syncInterval, changeInterval, lastSync, markSynced, timerRef } = useSyncConfig();
+
+  // Catálogo para el chatbot
+  useEffect(() => {
+    const fetchCatalogo = async () => {
+      try {
+        const api = import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:3000';
+        const res = await fetch(`${api}/libros?select=id,titulo,autor,genero,stock&order=titulo.asc`);
+        if (res.ok) {
+          const data = await res.json();
+          setCatalogo(data);
+        }
+      } catch {}
+    };
+    if (useLocal) fetchCatalogo();
+  }, [useLocal, refreshKey]);
+
+  const { messages, isOpen, isStreaming, ollamaAvailable, sendMessage, toggle: toggleChat, close: closeChat } = useChatbot(
+    favoritos,
+    prestamos,
+    catalogo,
+    userRole
+  );
 
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem("biblio_activeTab") || "dashboard";
@@ -673,6 +698,15 @@ function App() {
           prestamosActivosCount={prestamosActivosCount}
         />
       )}
+      <ChatPanel
+        messages={messages}
+        isOpen={isOpen}
+        isStreaming={isStreaming}
+        ollamaAvailable={ollamaAvailable}
+        onSend={sendMessage}
+        onToggle={toggleChat}
+        onClose={closeChat}
+      />
     </div>
   );
 }
