@@ -70,7 +70,46 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
             }
         } catch (e) { console.warn('[Sync] Error cola localStorage:', e); }
 
-        // 1. Procesar acciones_pendientes de Supabase (red externa) → aplicar en local
+        // 1. Sincronizar usuarios nuevos de Supabase → local (DEBE ir antes de procesar acciones)
+        let usuariosSync = 0;
+        try {
+            const { data: usuariosSupabase, error: uError } = await supabase
+                .from('usuarios').select('*');
+            console.log('[Sync] Usuarios en Supabase:', usuariosSupabase?.length, 'error:', uError);
+            if (!uError && usuariosSupabase) {
+                for (const u of usuariosSupabase) {
+                    if (!u.username) continue;
+                    try {
+                        const check = await fetch(`${localApi}/usuarios?username=eq.${u.username}`);
+                        const existing = check.ok ? await check.json() : [];
+                        if (existing.length === 0) {
+                            console.log(`[Sync] Creando usuario local: ${u.username}`);
+                            const res = await fetch(`${localApi}/usuarios`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    id: u.id,
+                                    username: u.username,
+                                    password: u.password,
+                                    rol: u.rol || 'usuario',
+                                    tipo_auth: 'local',
+                                    email: u.email,
+                                    auth_ref_id: u.auth_ref_id
+                                })
+                            });
+                            if (res.ok) {
+                                usuariosSync++;
+                                console.log(`[Sync] Usuario ${u.username} creado en local`);
+                            } else {
+                                console.warn(`[Sync] Error creando ${u.username}:`, res.status);
+                            }
+                        }
+                    } catch (e) { console.warn(`[Sync] Error usuario ${u.username}:`, e); }
+                }
+            }
+        } catch (e) { console.warn('[Sync] Error usuarios:', e); }
+
+        // 2. Procesar acciones_pendientes de Supabase (red externa) → aplicar en local
         let accionesProcesadas = 0;
         try {
             const { data: accionesSupabase, error: accErr } = await supabase
@@ -189,7 +228,7 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
 
         return {
             success: true,
-            message: `Sync exitoso: ${librosSubidos} libros, ${favoritosSincronizados} favs, ${prestamosSincronizados} préstamos.${accionesProcesadas > 0 ? ` ${accionesProcesadas} acciones remotas aplicadas.` : ''}${queueProcessed > 0 ? ` ${queueProcessed} cola local.` : ''}`,
+            message: `Sync exitoso: ${librosSubidos} libros, ${favoritosSincronizados} favs, ${prestamosSincronizados} préstamos.${usuariosSync > 0 ? ` ${usuariosSync} usuarios nuevos.` : ''}${accionesProcesadas > 0 ? ` ${accionesProcesadas} acciones remotas aplicadas.` : ''}${queueProcessed > 0 ? ` ${queueProcessed} cola local.` : ''}`,
             queueProcessed: queueProcessed + accionesProcesadas
         };
     } catch (error: any) {

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Library, Lock, Mail, Sun, Moon, UserPlus, LogIn, User, Loader2, ShieldCheck } from 'lucide-react';
+import { Library, Lock, Mail, Sun, Moon, UserPlus, LogIn, User, Loader2, ShieldCheck, Wifi, WifiOff } from 'lucide-react';
 import { useDarkMode } from '../hooks/useDarkMode';
 import bcrypt from 'bcryptjs';
 
@@ -12,9 +12,27 @@ export default function Login() {
     const [confirmPassword, setConfirmPassword] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    const [isLocalAvailable, setIsLocalAvailable] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        const check = async () => {
+            try {
+                const localApi = import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:3000';
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 2000);
+                const res = await fetch(`${localApi}/usuarios?limit=1`, { signal: ctrl.signal });
+                clearTimeout(timer);
+                setIsLocalAvailable(res.ok);
+            } catch {
+                setIsLocalAvailable(false);
+            }
+        };
+        check();
+    }, []);
 
     const isEmail = identifier.includes('@');
     const isRegisteringLocal = mode === 'register' && !isEmail;
+    const isExternalNetwork = isLocalAvailable === false;
 
     const switchMode = () => {
         setError(null);
@@ -33,7 +51,7 @@ export default function Login() {
                 setError('La contraseña debe tener al menos 6 caracteres.');
                 return;
             }
-            if (isRegisteringLocal && password !== confirmPassword) {
+            if (isRegisteringLocal && !isExternalNetwork && password !== confirmPassword) {
                 setError('Las contraseñas no coinciden.');
                 return;
             }
@@ -84,6 +102,43 @@ export default function Login() {
                     if (error) throw error;
                     alert('¡Registro exitoso! Revisa tu correo.');
                     switchMode();
+                } else if (isExternalNetwork) {
+                    // Red externa: crear cuenta en Supabase Auth + guardar hash en usuarios
+                    const derivedEmail = `${identifier}@usuario.local`;
+                    const hashedPassword = bcrypt.hashSync(password, 10);
+                    const { data: authData, error } = await supabase.auth.signUp({
+                        email: derivedEmail,
+                        password,
+                        options: { data: { username: identifier } }
+                    });
+                    if (error) throw error;
+
+                    // Guardar hash en usuarios para que el sync lo copie a local
+                    if (authData.user) {
+                        try {
+                            await supabase.from('usuarios').upsert({
+                                username: identifier,
+                                email: derivedEmail,
+                                password: hashedPassword,
+                                rol: 'usuario',
+                                tipo_auth: 'local',
+                                auth_ref_id: authData.user.id,
+                                activo: true
+                            }, { onConflict: 'username' });
+                        } catch {}
+                    }
+
+                    // Auto-login
+                    localStorage.setItem("biblio_temp_session", JSON.stringify({
+                        user: {
+                            id: authData.user?.id,
+                            username: identifier,
+                            email: derivedEmail,
+                            isTemp: true
+                        }
+                    }));
+                    localStorage.setItem("biblio_role", 'usuario');
+                    window.location.reload();
                 } else {
                     const hashedPassword = bcrypt.hashSync(password, 10);
                     const newUser = {
@@ -149,11 +204,27 @@ export default function Login() {
                         {mode === 'login' ? 'Bienvenido' : 'Nueva Cuenta'}
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-center text-sm mt-1 transition-all duration-300">
-                        {mode === 'login'
-                            ? 'Usa tu correo o nombre de usuario local'
-                            : 'Usa un nombre de usuario para trabajar sin internet'}
+                        {isExternalNetwork
+                            ? 'Red externa - usa tu usuario o correo'
+                            : mode === 'login'
+                                ? 'Usa tu correo o nombre de usuario local'
+                                : 'Usa un nombre de usuario para trabajar sin internet'}
                     </p>
                 </div>
+
+                {isExternalNetwork && (
+                    <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center gap-3 text-sm">
+                        <WifiOff className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span className="text-amber-700 dark:text-amber-300">Servidor local no disponible. Tus datos se guardarán en la nube.</span>
+                    </div>
+                )}
+
+                {isLocalAvailable && (
+                    <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3 text-sm">
+                        <Wifi className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="text-emerald-700 dark:text-emerald-300">Conectado al servidor local.</span>
+                    </div>
+                )}
 
                 {/* Tabs de modo */}
                 <div className="flex mb-6 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 relative">
@@ -182,9 +253,9 @@ export default function Login() {
 
                 <form onSubmit={handleAuth} className="space-y-4">
                     <div className="transition-all duration-300">
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            {mode === 'login' ? 'Correo o Usuario' : 'Nombre de usuario'}
-                        </label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                {mode === 'login' ? (isExternalNetwork ? 'Usuario o correo' : 'Correo o Usuario') : 'Usuario'}
+                            </label>
                         <div className="relative">
                             {identifier.includes('@') ? (
                                 <Mail className="absolute left-3 top-2.5 text-slate-400 dark:text-slate-500 w-5 h-5" />
@@ -223,7 +294,7 @@ export default function Login() {
                         )}
                     </div>
 
-                    {mode === 'register' && isRegisteringLocal && (
+                    {mode === 'register' && isRegisteringLocal && !isExternalNetwork && (
                         <div className="transition-all duration-300 animate-in fade-in slide-in-from-top-2">
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                                 Confirmar contraseña
