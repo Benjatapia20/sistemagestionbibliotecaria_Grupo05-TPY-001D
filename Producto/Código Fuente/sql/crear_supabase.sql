@@ -135,6 +135,24 @@ INSERT INTO public.config_prestamos (id, dias_maximos_prestamo, multa_por_dia, m
 VALUES (1, 14, 100, 3, 1);
 
 -- =====================================================================
+-- TABLA: ACCIONES PENDIENTES (cola de sync - solo local)
+-- =====================================================================
+
+DROP TABLE IF EXISTS public.acciones_pendientes CASCADE;
+CREATE TABLE public.acciones_pendientes (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    type TEXT NOT NULL,
+    usuario_id UUID NOT NULL,
+    payload JSONB NOT NULL,
+    aplicado BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_acciones_timestamp ON public.acciones_pendientes(timestamp);
+CREATE INDEX idx_acciones_aplicado ON public.acciones_pendientes(aplicado);
+
+-- =====================================================================
 -- TABLAS LEGACY
 -- =====================================================================
 
@@ -497,6 +515,23 @@ CREATE POLICY "Todos pueden ver cuentas temporales" ON public.cuentas_temporales
 
 DROP POLICY IF EXISTS "Cualquiera puede insertar cuentas temporales" ON public.cuentas_temporales;
 CREATE POLICY "Cualquiera puede insertar cuentas temporales" ON public.cuentas_temporales FOR INSERT WITH CHECK (true);
+
+-- --- ACCIONES PENDIENTES ---
+ALTER TABLE public.acciones_pendientes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Usuarios pueden ver sus acciones" ON public.acciones_pendientes;
+CREATE POLICY "Usuarios pueden ver sus acciones" ON public.acciones_pendientes FOR SELECT
+    USING (usuario_id = auth.uid()
+           OR usuario_id IN (SELECT id FROM public.usuarios WHERE auth_ref_id = auth.uid()::text));
+
+DROP POLICY IF EXISTS "Usuarios pueden crear acciones" ON public.acciones_pendientes;
+CREATE POLICY "Usuarios pueden crear acciones" ON public.acciones_pendientes FOR INSERT
+    WITH CHECK (usuario_id = auth.uid()
+                OR usuario_id IN (SELECT id FROM public.usuarios WHERE auth_ref_id = auth.uid()::text));
+
+DROP POLICY IF EXISTS "Admins pueden gestionar acciones" ON public.acciones_pendientes;
+CREATE POLICY "Admins pueden gestionar acciones" ON public.acciones_pendientes FOR ALL
+    USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- =====================================================================
 -- DATOS DE PRUEBA

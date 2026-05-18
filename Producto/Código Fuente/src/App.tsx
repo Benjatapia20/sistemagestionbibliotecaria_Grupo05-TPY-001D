@@ -12,6 +12,9 @@ import { VerificarCuenta } from "./components/VerificarCuenta";
 import { LibroDetalleCompleto } from "./components/LibroDetalleCompleto";
 import { useFavorites } from "./hooks/useFavorites";
 import { usePrestamos } from "./hooks/usePrestamos";
+import { useOfflineQueue } from "./hooks/useOfflineQueue";
+import { useSyncConfig } from "./hooks/useSyncConfig";
+import { SyncSettings } from "./components/SyncSettings";
 import { PrestamosLista } from "./components/PrestamosLista";
 import { MisPrestamos } from "./components/MisPrestamos";
 import { PrestamosDashboard } from "./components/PrestamosDashboard";
@@ -87,6 +90,9 @@ function App() {
     refreshPrestamos
   } = usePrestamos(userId, userRole, effectiveUseLocal);
 
+  const { queueCount } = useOfflineQueue();
+  const { autoSync, toggleAutoSync, syncInterval, changeInterval, lastSync, markSynced, timerRef } = useSyncConfig();
+
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem("biblio_activeTab") || "dashboard";
   });
@@ -94,6 +100,15 @@ function App() {
   useEffect(() => {
     localStorage.setItem("biblio_activeTab", activeTab);
   }, [activeTab]);
+
+  // Auto-sync timer
+  useEffect(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    if (autoSync && session) {
+      timerRef.current = setInterval(() => { handleSync(); }, syncInterval * 60 * 1000);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [autoSync, syncInterval, session]);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -127,8 +142,9 @@ function App() {
       if (result.success) {
         setRefreshKey((prev) => prev + 1);
         refreshPrestamos();
+        markSynced();
       }
-      setTimeout(() => setSyncStatus(null), 3000);
+      setTimeout(() => setSyncStatus(null), 4000);
     } catch (error) {
       setSyncStatus("Error al sincronizar");
       console.error("Error de sincronización:", error);
@@ -221,18 +237,16 @@ function App() {
 
   const fetchUserRole = async (userId: string) => {
     try {
-      console.log('[DEBUG fetchUserRole] Buscando por id:', userId);
       let { data, error } = await supabase
         .from('usuarios')
-        .select('rol, id, auth_ref_id, tipo_auth')
+        .select('rol, id')
         .eq('id', userId)
         .single();
 
       if (!data || error) {
-        console.log('[DEBUG fetchUserRole] No encontrado por id, buscando por auth_ref_id:', userId);
         const result = await supabase
           .from('usuarios')
-          .select('rol, id, auth_ref_id, tipo_auth')
+          .select('rol, id')
           .eq('auth_ref_id', userId)
           .single();
         data = result.data;
@@ -240,15 +254,12 @@ function App() {
       }
 
       if (data && !error) {
-        console.log('[DEBUG fetchUserRole] Encontrado:', data);
         setUserRole(data.rol);
         localStorage.setItem("biblio_role", data.rol);
         return data.id;
-      } else {
-        console.error('[DEBUG fetchUserRole] Error o no encontrado:', error);
       }
     } catch (err) {
-      console.error("[DEBUG fetchUserRole] Exception:", err);
+      console.error("[Auth] Error fetching role:", err);
     }
     return userId;
   };
@@ -301,13 +312,10 @@ function App() {
     const initSession = async (sess: any) => {
       if (sess) {
         setSession(sess);
-        console.log('[DEBUG initSession] Supabase session, auth.uid():', sess.user.id);
         const resolvedId = await fetchUserRole(sess.user.id);
-        console.log('[DEBUG initSession] resolvedUserId:', resolvedId);
         setResolvedUserId(resolvedId);
         setCheckingAuth(false);
       } else {
-        console.log('[DEBUG initSession] No Supabase session, trying local');
         await initLocalSession();
         setCheckingAuth(false);
       }
@@ -385,10 +393,15 @@ function App() {
                     <button
                       onClick={handleSync}
                       disabled={syncing}
-                      className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold w-full sm:w-auto justify-center"
+                      className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold w-full sm:w-auto justify-center relative"
                     >
                       <RefreshCw className={`w-5 h-5 ${syncing ? "animate-spin" : ""}`} />
                       {syncing ? "Sincronizando..." : "Sincronizar"}
+                      {queueCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                          {queueCount}
+                        </span>
+                      )}
                     </button>
                     <button
                       onClick={() => setIsAddModalOpen(true)}
@@ -582,6 +595,17 @@ function App() {
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${useLocal ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
                 </div>
+
+                <SyncSettings
+                  autoSync={autoSync}
+                  syncInterval={syncInterval}
+                  lastSync={lastSync}
+                  queueCount={queueCount}
+                  syncing={syncing}
+                  onToggleAutoSync={toggleAutoSync}
+                  onChangeInterval={changeInterval}
+                  onSyncNow={handleSync}
+                />
 
                 <div className="p-6">
                   <button

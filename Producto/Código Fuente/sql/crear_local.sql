@@ -116,6 +116,24 @@ INSERT INTO public.config_prestamos (id, dias_maximos_prestamo, multa_por_dia, m
 VALUES (1, 14, 100, 3, 1);
 
 -- =====================================================================
+-- TABLA: ACCIONES PENDIENTES (cola de sync)
+-- =====================================================================
+
+CREATE TABLE public.acciones_pendientes (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    type TEXT NOT NULL,
+    usuario_id UUID NOT NULL,
+    payload JSONB NOT NULL,
+    aplicado BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_acciones_timestamp ON public.acciones_pendientes(timestamp);
+CREATE INDEX idx_acciones_aplicado ON public.acciones_pendientes(aplicado);
+CREATE INDEX idx_acciones_usuario ON public.acciones_pendientes(usuario_id);
+
+-- =====================================================================
 -- TABLAS LEGACY (vinculadas a usuarios)
 -- =====================================================================
 
@@ -224,6 +242,7 @@ GRANT SELECT, INSERT, UPDATE ON public.usuarios TO web_anon;
 GRANT SELECT, INSERT, UPDATE ON public.libros TO web_anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.favoritos TO web_anon;
 GRANT SELECT, INSERT, UPDATE ON public.prestamos TO web_anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.acciones_pendientes TO web_anon;
 GRANT SELECT, UPDATE ON public.config_prestamos TO web_anon;
 GRANT SELECT, INSERT, UPDATE ON public.cuentas_temporales TO web_anon;
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO web_anon;

@@ -47,12 +47,53 @@ const syncCaratulaToSupabase = async (caratulaLocalPath: string): Promise<string
     }
 };
 
-export const sincronizarConNube = async (): Promise<{ success: boolean; message: string }> => {
+export const sincronizarConNube = async (): Promise<{ success: boolean; message: string; queueProcessed?: number }> => {
     try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
             return { success: false, message: 'Debes verificar tu cuenta con correo para sincronizar.' };
         }
+
+        const localApi = import.meta.env.VITE_LOCAL_API_URL;
+
+        // 0. Procesar cola de localStorage primero
+        let queueProcessed = 0;
+        try {
+            const saved = localStorage.getItem('biblio_offline_queue');
+            if (saved) {
+                const queue = JSON.parse(saved);
+                if (queue.length > 0) {
+                    console.log(`[Sync] Procesando ${queue.length} acciones pendientes (localStorage)...`);
+                    const result = await processQueueDirect(queue, localApi);
+                    queueProcessed = result.success;
+                }
+            }
+        } catch (e) { console.warn('[Sync] Error cola localStorage:', e); }
+
+        // 1. Procesar acciones_pendientes de la tabla local
+        let accionesProcesadas = 0;
+        try {
+            const resAcc = await fetch(`${localApi}/acciones_pendientes?aplicado=eq.false&order=timestamp.asc`);
+            if (resAcc.ok) {
+                const acciones = await resAcc.json();
+                if (acciones.length > 0) {
+                    console.log(`[Sync] Procesando ${acciones.length} acciones de la tabla...`);
+                    for (const acc of acciones) {
+                        try {
+                            const ok = await executeTableAction(acc, localApi);
+                            if (ok) {
+                                await fetch(`${localApi}/acciones_pendientes?id=eq.${acc.id}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ aplicado: true })
+                                });
+                                accionesProcesadas++;
+                            }
+                        } catch (e) { console.warn(`[Sync] Error acción ${acc.id}:`, e); }
+                    }
+                }
+            }
+        } catch (e) { console.warn('[Sync] Error procesando acciones:', e); }
 
         let librosParaSincronizar: any[] = [];
         let servidorLocalDisponible = false;
@@ -60,8 +101,6 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
         let usuariosSincronizados = 0;
         let favoritosSincronizados = 0;
         let prestamosSincronizados = 0;
-
-        const localApi = import.meta.env.VITE_LOCAL_API_URL;
 
         try {
             // A. Sincronizar Usuarios, Favoritos y Préstamos primero
@@ -128,7 +167,8 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
 
         return {
             success: true,
-            message: `Sincronización exitosa: ${librosSubidos} libros, ${usuariosSincronizados} usuarios, ${favoritosSincronizados} favoritos y ${prestamosSincronizados} préstamos sincronizados.`,
+            message: `Sync exitoso: ${librosSubidos} libros, ${usuariosSincronizados} usuarios, ${favoritosSincronizados} favoritos, ${prestamosSincronizados} préstamos.${accionesProcesadas > 0 ? ` ${accionesProcesadas} acciones aplicadas.` : ''}${queueProcessed > 0 ? ` ${queueProcessed} pendientes de cola.` : ''}`,
+            queueProcessed: queueProcessed + accionesProcesadas
         };
     } catch (error: any) {
         console.error("Error crítico en la sincronización:", error);
@@ -257,4 +297,122 @@ async function sincronizarPrestamos(): Promise<number> {
     }
 
     return sincronizados;
+}
+
+interface QueueItem {
+    id: string;
+    type: string;
+    payload: any;
+    userId: string;
+    timestamp: number;
+}
+
+async function processQueueDirect(queue: QueueItem[], localApi: string): Promise<{ success: number; failed: number }> {
+    let success = 0;
+    let failed = 0;
+    const remaining: QueueItem[] = [];
+
+    for (const action of queue) {
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            let ok = false;
+
+            switch (action.type) {
+                case 'toggle_favorite': {
+                    const { libroId, isFavorite } = action.payload;
+                    if (isFavorite) {
+                        const res = await fetch(`${localApi}/favoritos?usuario_id=eq.${action.userId}&libro_id=eq.${libroId}`, { method: 'DELETE' });
+                        ok = res.ok;
+                    } else {
+                        const res = await fetch(`${localApi}/favoritos`, {
+                            method: 'POST', headers,
+                            body: JSON.stringify({ usuario_id: action.userId, libro_id: libroId })
+                        });
+                        ok = res.ok;
+                    }
+                    break;
+                }
+                case 'solicitar_prestamo': {
+                    const res = await fetch(`${localApi}/prestamos`, {
+                        method: 'POST',
+                        headers: { ...headers, 'Prefer': 'return=representation' },
+                        body: JSON.stringify(action.payload.prestamo)
+                    });
+                    ok = res.ok;
+                    break;
+                }
+                case 'aprobar_prestamo':
+                case 'rechazar_prestamo':
+                case 'solicitar_devolucion':
+                case 'aprobar_devolucion':
+                case 'rechazar_devolucion':
+                case 'solicitar_renovacion':
+                case 'aprobar_renovacion':
+                case 'rechazar_renovacion': {
+                    const { prestamoId, updates } = action.payload;
+                    const res = await fetch(`${localApi}/prestamos?id=eq.${prestamoId}`, {
+                        method: 'PATCH', headers,
+                        body: JSON.stringify(updates)
+                    });
+                    ok = res.ok;
+                    break;
+                }
+            }
+
+            if (ok) {
+                success++;
+            } else {
+                failed++;
+                remaining.push(action);
+            }
+        } catch {
+            failed++;
+            remaining.push(action);
+        }
+    }
+
+    localStorage.setItem('biblio_offline_queue', JSON.stringify(remaining));
+    return { success, failed };
+}
+
+async function executeTableAction(acc: any, localApi: string): Promise<boolean> {
+    const headers = { 'Content-Type': 'application/json' };
+    const payload = acc.payload;
+    const rpc = async (fn: string, body: Record<string, any>) => {
+        const res = await fetch(`${localApi}/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(body) });
+        return res.ok;
+    };
+
+    switch (acc.type) {
+        case 'toggle_favorite': {
+            const { libro_id, is_favorite } = payload;
+            if (is_favorite) {
+                const res = await fetch(`${localApi}/favoritos?usuario_id=eq.${acc.usuario_id}&libro_id=eq.${libro_id}`, { method: 'DELETE' });
+                return res.ok;
+            }
+            const res = await fetch(`${localApi}/favoritos`, { method: 'POST', headers, body: JSON.stringify({ usuario_id: acc.usuario_id, libro_id: libro_id }) });
+            return res.ok;
+        }
+        case 'solicitar_prestamo': {
+            const res = await fetch(`${localApi}/prestamos`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify(payload.prestamo) });
+            return res.ok;
+        }
+        case 'aprobar_prestamo':
+            return rpc('aprobar_prestamo_op', { prestamo_id: payload.prestamoId || payload.prestamo_id });
+        case 'rechazar_prestamo':
+            return rpc('rechazar_prestamo_op', { prestamo_id: payload.prestamoId || payload.prestamo_id });
+        case 'solicitar_devolucion':
+            return rpc('solicitar_devolucion_op', { prestamo_id: payload.prestamoId || payload.prestamo_id, p_estado_libro: payload.estadoLibro || 'buen_estado', p_observaciones: '' });
+        case 'aprobar_devolucion':
+            return rpc('aprobar_devolucion_op', { prestamo_id: payload.prestamoId || payload.prestamo_id, p_multa: payload.multa || 0 });
+        case 'rechazar_devolucion':
+            return rpc('rechazar_devolucion_op', { prestamo_id: payload.prestamoId || payload.prestamo_id });
+        case 'solicitar_renovacion':
+            return rpc('solicitar_renovacion_op', { prestamo_id: payload.prestamoId || payload.prestamo_id });
+        case 'aprobar_renovacion':
+            return rpc('aprobar_renovacion_op', { prestamo_id: payload.prestamoId || payload.prestamo_id });
+        case 'rechazar_renovacion':
+            return rpc('rechazar_renovacion_op', { prestamo_id: payload.prestamoId || payload.prestamo_id });
+        default: return false;
+    }
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useOfflineQueue } from './useOfflineQueue';
 
 interface Favorito {
     id: string;
@@ -10,6 +11,7 @@ interface Favorito {
 export const useFavorites = (userId: string | undefined, useLocal: boolean) => {
     const [favoritos, setFavoritos] = useState<Set<number>>(new Set());
     const [loading, setLoading] = useState(false);
+    const { addToQueue } = useOfflineQueue();
 
     const fetchFavoritos = useCallback(async () => {
         if (!userId) return;
@@ -21,25 +23,20 @@ export const useFavorites = (userId: string | undefined, useLocal: boolean) => {
                 const res = await fetch(`${localApi}/favoritos?usuario_id=eq.${userId}`);
                 if (res.ok) {
                     const data: Favorito[] = await res.json();
-                    console.log('[DEBUG useFavorites] Local:', data.length, 'favs, userId:', userId);
                     setFavoritos(new Set(data.map(f => f.libro_id)));
-                } else {
-                    console.error('[DEBUG useFavorites] Local fetch error:', res.status);
                 }
             } else {
-                console.log('[DEBUG useFavorites] Supabase fetch, userId:', userId);
                 const { data, error } = await supabase
                     .from('favoritos')
                     .select('libro_id')
                     .eq('usuario_id', userId);
                 
-                console.log('[DEBUG useFavorites] Supabase result:', data?.length, 'favs, error:', error?.message || 'none');
                 if (!error && data) {
                     setFavoritos(new Set(data.map(f => f.libro_id)));
                 }
             }
         } catch (error) {
-            console.error('[DEBUG useFavorites] Error:', error);
+            console.error('Error fetching favorites:', error);
         } finally {
             setLoading(false);
         }
@@ -54,7 +51,6 @@ export const useFavorites = (userId: string | undefined, useLocal: boolean) => {
 
         const isFavorite = favoritos.has(libroId);
         
-        // Optimistic UI Update
         setFavoritos(prev => {
             const next = new Set(prev);
             if (isFavorite) next.delete(libroId);
@@ -62,41 +58,56 @@ export const useFavorites = (userId: string | undefined, useLocal: boolean) => {
             return next;
         });
 
+        const localApi = import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:3000';
+
         try {
-            if (useLocal) {
-                const localApi = import.meta.env.VITE_LOCAL_API_URL || 'http://localhost:3000';
-                if (isFavorite) {
-                    await fetch(`${localApi}/favoritos?usuario_id=eq.${userId}&libro_id=eq.${libroId}`, {
-                        method: 'DELETE'
-                    });
-                } else {
-                    await fetch(`${localApi}/favoritos`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ usuario_id: userId, libro_id: libroId })
-                    });
-                }
+            if (isFavorite) {
+                const res = await fetch(`${localApi}/favoritos?usuario_id=eq.${userId}&libro_id=eq.${libroId}`, {
+                    method: 'DELETE'
+                });
+                if (!res.ok) throw new Error('Local API error');
             } else {
-                if (isFavorite) {
-                    await supabase
-                        .from('favoritos')
-                        .delete()
-                        .match({ usuario_id: userId, libro_id: libroId });
-                } else {
-                    await supabase
-                        .from('favoritos')
-                        .insert([{ usuario_id: userId, libro_id: libroId }]);
-                }
+                const res = await fetch(`${localApi}/favoritos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario_id: userId, libro_id: libroId })
+                });
+                if (!res.ok) throw new Error('Local API error');
             }
-        } catch (error) {
-            console.error('Error toggling favorite:', error);
-            // Revert Optimistic Update on error
-            setFavoritos(prev => {
-                const next = new Set(prev);
-                if (isFavorite) next.add(libroId);
-                else next.delete(libroId);
-                return next;
+
+            // Guardar en acciones_pendientes para trazabilidad
+            try {
+                await fetch(`${localApi}/acciones_pendientes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'toggle_favorite',
+                        usuario_id: userId,
+                        payload: { libro_id: libroId, is_favorite: !isFavorite },
+                        aplicado: true
+                    })
+                });
+            } catch {}
+        } catch {
+            // API local no disponible: encolar en localStorage y acciones_pendientes
+            addToQueue({
+                type: 'toggle_favorite',
+                payload: { libroId, isFavorite },
+                userId
             });
+
+            try {
+                await fetch(`${localApi}/acciones_pendientes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'toggle_favorite',
+                        usuario_id: userId,
+                        payload: { libro_id: libroId, is_favorite: !isFavorite },
+                        aplicado: false
+                    })
+                });
+            } catch {}
         }
     };
 
