@@ -70,8 +70,32 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
             }
         } catch (e) { console.warn('[Sync] Error cola localStorage:', e); }
 
-        // 1. Procesar acciones_pendientes de la tabla local
+        // 1. Procesar acciones_pendientes de Supabase (red externa) → aplicar en local
         let accionesProcesadas = 0;
+        try {
+            const { data: accionesSupabase, error: accErr } = await supabase
+                .from('acciones_pendientes')
+                .select('*')
+                .eq('aplicado', false)
+                .order('timestamp', { ascending: true });
+
+            if (!accErr && accionesSupabase && accionesSupabase.length > 0) {
+                console.log(`[Sync] Procesando ${accionesSupabase.length} acciones de Supabase...`);
+                for (const acc of accionesSupabase) {
+                    try {
+                        const ok = await executeTableAction(acc, localApi);
+                        if (ok) {
+                            await supabase.from('acciones_pendientes')
+                                .update({ aplicado: true })
+                                .eq('id', acc.id);
+                            accionesProcesadas++;
+                        }
+                    } catch (e) { console.warn(`[Sync] Error acción Supabase ${acc.id}:`, e); }
+                }
+            }
+        } catch (e) { console.warn('[Sync] Error procesando acciones Supabase:', e); }
+
+        // 2. Procesar acciones_pendientes de la tabla local
         try {
             const resAcc = await fetch(`${localApi}/acciones_pendientes?aplicado=eq.false&order=timestamp.asc`);
             if (resAcc.ok) {
@@ -98,13 +122,11 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
         let librosParaSincronizar: any[] = [];
         let servidorLocalDisponible = false;
         let librosSubidos = 0;
-        let usuariosSincronizados = 0;
         let favoritosSincronizados = 0;
         let prestamosSincronizados = 0;
 
         try {
-            // A. Sincronizar Usuarios, Favoritos y Préstamos primero
-            usuariosSincronizados = await sincronizarUsuarios();
+            // A. Sincronizar Favoritos y Préstamos
             favoritosSincronizados = await sincronizarFavoritos();
             prestamosSincronizados = await sincronizarPrestamos();
 
@@ -123,7 +145,7 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
         }
 
         if (!servidorLocalDisponible) return { success: false, message: 'Servidor local no disponible.' };
-        if (librosParaSincronizar.length === 0) return { success: true, message: `Nada que sincronizar. Usuarios sincronizados: ${usuariosSincronizados}` };
+        if (librosParaSincronizar.length === 0) return { success: true, message: `Nada que sincronizar.` };
 
         const librosActualizados = await Promise.all(
             librosParaSincronizar.map(async (libro) => {
@@ -167,7 +189,7 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
 
         return {
             success: true,
-            message: `Sync exitoso: ${librosSubidos} libros, ${usuariosSincronizados} usuarios, ${favoritosSincronizados} favoritos, ${prestamosSincronizados} préstamos.${accionesProcesadas > 0 ? ` ${accionesProcesadas} acciones aplicadas.` : ''}${queueProcessed > 0 ? ` ${queueProcessed} pendientes de cola.` : ''}`,
+            message: `Sync exitoso: ${librosSubidos} libros, ${favoritosSincronizados} favs, ${prestamosSincronizados} préstamos.${accionesProcesadas > 0 ? ` ${accionesProcesadas} acciones remotas aplicadas.` : ''}${queueProcessed > 0 ? ` ${queueProcessed} cola local.` : ''}`,
             queueProcessed: queueProcessed + accionesProcesadas
         };
     } catch (error: any) {
@@ -178,44 +200,6 @@ export const sincronizarConNube = async (): Promise<{ success: boolean; message:
         };
     }
 };
-
-async function sincronizarUsuarios(): Promise<number> {
-    const localApi = import.meta.env.VITE_LOCAL_API_URL;
-    let sincronizados = 0;
-
-    try {
-        const res = await fetch(`${localApi}/usuarios`);
-        const usuariosLocales = await res.json();
-
-        if (!usuariosLocales || usuariosLocales.length === 0) return 0;
-
-        for (const usuario of usuariosLocales) {
-            console.log(`[Sync] Sincronizando usuario: ${usuario.username}`);
-            const { error } = await supabase
-                .from('usuarios')
-                .upsert({
-                    id: usuario.id,
-                    username: usuario.username,
-                    email: usuario.email,
-                    rol: usuario.rol,
-                    tipo_auth: usuario.tipo_auth,
-                    auth_ref_id: usuario.auth_ref_id,
-                    activo: usuario.activo,
-                    created_at: usuario.created_at
-                }, { onConflict: 'id' });
-            
-            if (error) {
-                console.error(`[Sync] Error con usuario ${usuario.username}:`, error.message);
-            } else {
-                sincronizados++;
-            }
-        }
-    } catch (e) {
-        console.error("Error sincronizando usuarios:", e);
-    }
-
-    return sincronizados;
-}
 
 async function sincronizarFavoritos(): Promise<number> {
     const localApi = import.meta.env.VITE_LOCAL_API_URL;
@@ -333,10 +317,16 @@ async function processQueueDirect(queue: QueueItem[], localApi: string): Promise
                     break;
                 }
                 case 'solicitar_prestamo': {
+                    const p = action.payload.prestamo;
+                    // Usar el ID de Supabase si viene en el payload para evitar duplicados
+                    const body: any = { ...p };
+                    if (!body.id || body.id.startsWith('temp-')) {
+                        delete body.id; // dejar que PostgREST genere uno nuevo
+                    }
                     const res = await fetch(`${localApi}/prestamos`, {
                         method: 'POST',
                         headers: { ...headers, 'Prefer': 'return=representation' },
-                        body: JSON.stringify(action.payload.prestamo)
+                        body: JSON.stringify(body)
                     });
                     ok = res.ok;
                     break;
@@ -394,7 +384,10 @@ async function executeTableAction(acc: any, localApi: string): Promise<boolean> 
             return res.ok;
         }
         case 'solicitar_prestamo': {
-            const res = await fetch(`${localApi}/prestamos`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify(payload.prestamo) });
+            const p = payload.prestamo;
+            const body: any = { ...p };
+            if (!body.id || body.id.startsWith('temp-')) delete body.id;
+            const res = await fetch(`${localApi}/prestamos`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify(body) });
             return res.ok;
         }
         case 'aprobar_prestamo':
