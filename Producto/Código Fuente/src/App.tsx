@@ -105,7 +105,7 @@ function App() {
   useEffect(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     if (autoSync && session) {
-      timerRef.current = setInterval(() => { handleSync(); }, syncInterval * 60 * 1000);
+      timerRef.current = setInterval(() => { handleSync(); }, syncInterval * 1000);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [autoSync, syncInterval, session]);

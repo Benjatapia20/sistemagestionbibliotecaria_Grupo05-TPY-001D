@@ -7,7 +7,7 @@ export const useSyncConfig = () => {
 
     const [syncInterval, setSyncInterval] = useState(() => {
         const saved = localStorage.getItem('biblio_syncInterval');
-        return saved ? parseInt(saved) : 5;
+        return saved ? parseInt(saved) : 30;
     });
 
     const [lastSync, setLastSync] = useState<Date | null>(() => {
@@ -35,8 +35,8 @@ export const useSyncConfig = () => {
         setAutoSync(prev => !prev);
     }, []);
 
-    const changeInterval = useCallback((minutes: number) => {
-        setSyncInterval(Math.max(1, Math.min(60, minutes)));
+    const changeInterval = useCallback((seconds: number) => {
+        setSyncInterval(Math.max(5, Math.min(3600, seconds)));
     }, []);
 
     return {

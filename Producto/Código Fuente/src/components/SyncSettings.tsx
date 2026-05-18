@@ -7,11 +7,9 @@ interface SyncSettingsProps {
     queueCount: number;
     syncing: boolean;
     onToggleAutoSync: () => void;
-    onChangeInterval: (minutes: number) => void;
+    onChangeInterval: (seconds: number) => void;
     onSyncNow: () => void;
 }
-
-const INTERVAL_OPTIONS = [1, 2, 5, 10, 15, 30, 60];
 
 export const SyncSettings = ({
     autoSync,
@@ -52,19 +50,22 @@ export const SyncSettings = ({
                     <div>
                         <h4 className="font-semibold text-slate-900 dark:text-white">Intervalo</h4>
                         <p className="text-sm text-slate-500 dark:text-slate-400">
-                            Cada cuántos minutos sincronizar
+                            Cada cuántos segundos sincronizar
                         </p>
                     </div>
-                    <select
-                        value={syncInterval}
-                        disabled={!autoSync}
-                        onChange={(e) => onChangeInterval(parseInt(e.target.value))}
-                        className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 disabled:opacity-50 cursor-pointer outline-none"
-                    >
-                        {INTERVAL_OPTIONS.map(m => (
-                            <option key={m} value={m}>{m} min</option>
-                        ))}
-                    </select>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="number"
+                            min={5}
+                            max={3600}
+                            step={5}
+                            value={syncInterval}
+                            disabled={!autoSync}
+                            onChange={(e) => onChangeInterval(parseInt(e.target.value) || 5)}
+                            className="w-20 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 disabled:opacity-50 outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                        />
+                        <span className="text-sm text-slate-500 dark:text-slate-400">seg</span>
+                    </div>
                 </div>
 
                 <div className="p-6">
@@ -77,7 +78,7 @@ export const SyncSettings = ({
                                 <p className="text-xs text-slate-500 dark:text-slate-400">Último sync</p>
                                 <p className="font-semibold text-sm text-slate-900 dark:text-white">
                                     {lastSync
-                                        ? lastSync.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+                                        ? lastSync.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                                         : 'Nunca'}
                                 </p>
                             </div>
@@ -101,7 +102,7 @@ export const SyncSettings = ({
                         className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white disabled:text-slate-400 font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
                     >
                         <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                        {syncing ? 'Sincronizando...' : autoSync ? `Auto-sync cada ${syncInterval} min` : 'Sincronizar ahora'}
+                        {syncing ? 'Sincronizando...' : autoSync ? `Auto-sync cada ${syncInterval} seg` : 'Sincronizar ahora'}
                     </button>
                 </div>
             </div>
