@@ -60,7 +60,6 @@ function App() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [libroEditando, setLibroEditando] = useState<Libro | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const { useLocal, toggleUseLocal } = useConfig();
   const [libroSeleccionadoFull, setLibroSeleccionadoFull] = useState<any | null>(null);
   const [libroSolicitando, setLibroSolicitando] = useState<Libro | null>(null);
@@ -160,20 +159,15 @@ function App() {
 
   const handleSync = async () => {
     setSyncing(true);
-    setSyncStatus("Sincronizando...");
     try {
       const result = await sincronizarConNube();
-      setSyncStatus(result.message);
       if (result.success) {
         setRefreshKey((prev) => prev + 1);
         refreshPrestamos();
         markSynced();
       }
-      setTimeout(() => setSyncStatus(null), 4000);
     } catch (error) {
-      setSyncStatus("Error al sincronizar");
       console.error("Error de sincronización:", error);
-      setTimeout(() => setSyncStatus(null), 3000);
     } finally {
       setSyncing(false);
     }
@@ -416,19 +410,6 @@ function App() {
                 {userRole === 'admin' && (
                   <div className="flex gap-2 w-full sm:w-auto">
                     <button
-                      onClick={handleSync}
-                      disabled={syncing}
-                      className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold w-full sm:w-auto justify-center relative"
-                    >
-                      <RefreshCw className={`w-5 h-5 ${syncing ? "animate-spin" : ""}`} />
-                      {syncing ? "Sincronizando..." : "Sincronizar"}
-                      {queueCount > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                          {queueCount}
-                        </span>
-                      )}
-                    </button>
-                    <button
                       onClick={() => setIsAddModalOpen(true)}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm font-semibold shadow-sm w-full sm:w-auto justify-center"
                     >
@@ -438,11 +419,6 @@ function App() {
                   </div>
                 )}
               </div>
-              {syncStatus && (
-                <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg text-sm">
-                  {syncStatus}
-                </div>
-              )}
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4">
                 <div className="flex justify-between items-center mb-3">
                   <h2 className="font-bold text-slate-900 dark:text-white">Lista de Libros</h2>
