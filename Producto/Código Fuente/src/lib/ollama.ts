@@ -16,6 +16,9 @@ export async function* streamChat(
     model: string,
     messages: { role: string; content: string }[]
 ): AsyncGenerator<string, void, unknown> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 60000);
+
     const res = await fetch(`${OLLAMA_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -24,18 +27,30 @@ export async function* streamChat(
             messages,
             stream: true,
             options: { temperature: 0.7, top_p: 0.9 }
-        })
+        }),
+        signal: ctrl.signal
+    }).catch(e => {
+        clearTimeout(timer);
+        if (e.name === 'AbortError') throw new Error('Timeout: Ollama tardó demasiado');
+        throw new Error('No se pudo conectar con Ollama');
     });
 
-    if (!res.ok || !res.body) throw new Error('Ollama no disponible');
+    clearTimeout(timer);
+    if (!res || !res.ok || !res.body) throw new Error('Ollama no disponible');
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let firstToken = true;
 
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+
+        if (firstToken) {
+            firstToken = false;
+            // El modelo ya respondió, limpiar estado de carga
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');

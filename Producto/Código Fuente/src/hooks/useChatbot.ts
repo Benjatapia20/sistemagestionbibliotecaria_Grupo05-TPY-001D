@@ -99,16 +99,19 @@ export const useChatbot = (
             { role: 'user', content: `DATOS ACTUALES DEL USUARIO:\n\n${ctxText}\n\nPREGUNTA DEL USUARIO: ${content}` }
         ];
 
-        const assistantMsg: Message = { role: 'assistant', content: '' };
+        const assistantMsg: Message = { role: 'assistant', content: '⏳' };
         setMessages(prev => [...prev, assistantMsg]);
 
         try {
             const gen = streamChat('phi3.5', fullMessages);
+            let first = true;
             for await (const chunk of gen) {
                 setMessages(prev => {
                     const updated = [...prev];
                     const last = updated[updated.length - 1];
-                    updated[updated.length - 1] = { ...last, content: last.content + chunk };
+                    const newContent = first ? chunk : last.content + chunk;
+                    first = false;
+                    updated[updated.length - 1] = { ...last, content: newContent };
                     return updated;
                 });
             }
@@ -116,7 +119,7 @@ export const useChatbot = (
             setMessages(prev => {
                 const updated = [...prev];
                 const last = updated[updated.length - 1];
-                updated[updated.length - 1] = { ...last, content: '❌ No pude conectar con el asistente. ¿Está corriendo Ollama?' };
+                updated[updated.length - 1] = { ...last, content: e.message || '❌ Error al conectar con Ollama.' };
                 return updated;
             });
         } finally {
