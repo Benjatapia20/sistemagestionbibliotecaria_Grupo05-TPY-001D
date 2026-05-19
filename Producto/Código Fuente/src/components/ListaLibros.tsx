@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Loader2, Search, Book, ChevronRight, Heart } from 'lucide-react';
 import { DetalleLibro } from './DetalleLibro';
-import { useFavorites } from '../hooks/useFavorites';
 
 interface Libro {
   id: number;
@@ -25,11 +24,12 @@ interface Libro {
 interface Props {
   onDataLoaded?: (total: number) => void;
   showFavoritesOnly?: boolean;
-  userId?: string;
   useLocal?: boolean;
   onVerMas?: (libro: Libro) => void;
   onSolicitarPrestamo?: (libro: Libro) => void;
   tienePrestamoActivo?: (libroId: number) => boolean;
+  favoritos: Set<number>;
+  onToggleFavorite: (libroId: number) => void;
 }
 
 const MobileBottomSheet = ({ isOpen, onClose, children }: { isOpen: boolean, onClose: () => void, children: React.ReactNode }) => {
@@ -119,14 +119,12 @@ const MobileBottomSheet = ({ isOpen, onClose, children }: { isOpen: boolean, onC
   );
 };
 
-export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, useLocal = false, onVerMas, onSolicitarPrestamo, tienePrestamoActivo }: Props) => {
+export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, useLocal = false, onVerMas, onSolicitarPrestamo, tienePrestamoActivo, favoritos, onToggleFavorite }: Props) => {
   const [libros, setLibros] = useState<Libro[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGenero, setSelectedGenero] = useState('Todos');
   const [selectedLibro, setSelectedLibro] = useState<Libro | null>(null);
-  
-  const { favoritos, toggleFavorite } = useFavorites(userId, useLocal);
 
   const cargarLibros = async () => {
     setLoading(true);
@@ -269,7 +267,7 @@ export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, u
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleFavorite(libro.id);
+                      onToggleFavorite(libro.id);
                     }}
                     className="absolute top-3 right-3 p-2 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-md transition-colors z-20"
                   >
@@ -316,7 +314,7 @@ export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, u
           onClose={() => setSelectedLibro(null)}
           getImagenSrc={(p, u) => getImagenSrc(p, u)}
           isFavorite={selectedLibro ? favoritos.has(selectedLibro.id) : false}
-          onToggleFavorite={() => selectedLibro && toggleFavorite(selectedLibro.id)}
+          onToggleFavorite={() => selectedLibro && onToggleFavorite(selectedLibro.id)}
           onVerMas={onVerMas}
           onSolicitarPrestamo={() => selectedLibro && onSolicitarPrestamo?.(selectedLibro)}
           tienePrestamoActivo={selectedLibro ? tienePrestamoActivo?.(selectedLibro.id) : false}
@@ -332,7 +330,7 @@ export const ListaLibros = ({ onDataLoaded, showFavoritesOnly = false, userId, u
           onClose={() => setSelectedLibro(null)}
           getImagenSrc={(p, u) => getImagenSrc(p, u)}
           isFavorite={selectedLibro ? favoritos.has(selectedLibro.id) : false}
-          onToggleFavorite={() => selectedLibro && toggleFavorite(selectedLibro.id)}
+          onToggleFavorite={() => selectedLibro && onToggleFavorite(selectedLibro.id)}
           onVerMas={onVerMas}
           onSolicitarPrestamo={() => selectedLibro && onSolicitarPrestamo?.(selectedLibro)}
           tienePrestamoActivo={selectedLibro ? tienePrestamoActivo?.(selectedLibro.id) : false}

@@ -504,27 +504,25 @@ function App() {
 
           {/* FAVORITOS */}
           <div className={activeTab === "favoritos" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
-            {activeTab === "favoritos" && (
-              <ListaLibros 
-                key={`fav-${refreshKey}`} 
-                showFavoritesOnly={true} 
-                userId={userId} 
-                useLocal={effectiveUseLocal} 
-                onVerMas={handleVerMas}
-              />
-            )}
+            <ListaLibros 
+              showFavoritesOnly={true} 
+              useLocal={effectiveUseLocal} 
+              onVerMas={handleVerMas}
+              favoritos={favoritos}
+              onToggleFavorite={toggleFavorite}
+            />
           </div>
 
           {/* CATALOGO */}
           <div className={activeTab === "catalogo" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
             <ListaLibros 
-              key={`cat-${refreshKey}`} 
               onDataLoaded={setTotalLibros} 
-              userId={userId} 
               useLocal={effectiveUseLocal} 
               onVerMas={handleVerMas}
               onSolicitarPrestamo={(libro) => setLibroSolicitando(libro)}
               tienePrestamoActivo={tienePrestamoActivo}
+              favoritos={favoritos}
+              onToggleFavorite={toggleFavorite}
             />
           </div>
 
