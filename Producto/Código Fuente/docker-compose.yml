@@ -1,0 +1,73 @@
+services:
+  db:
+    build: ./docker
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: biblioteca
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d biblioteca"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgrest:
+    image: postgrest/postgrest:v14.11
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:postgres@db:5432/biblioteca
+      PGRST_DB_SCHEMAS: api
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: c2VjcmV0by1qd3QtcGFyYS1kZXNhcnJvbGxvLWxvY2FsLW5vLXVzYXItZW4tcHJvZHVjY2lvbg==
+      PGRST_JWT_SECRET_IS_BASE64: "true"
+    ports:
+      - "3000:3000"
+
+  dbgate:
+    image: dbgate/dbgate:alpine
+    restart: unless-stopped
+    ports:
+      - "8081:3000"
+    volumes:
+      - dbgate-data:/root/.dbgate
+    environment:
+      CONNECTIONS: con1
+      LABEL_con1: Biblioteca
+      SERVER_con1: db
+      USER_con1: postgres
+      PASSWORD_con1: postgres
+      PORT_con1: 5432
+      DATABASE_con1: biblioteca
+      ENGINE_con1: postgres@dbgate-plugin-postgres
+
+  upload-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.local
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./docker/uploads:/app/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
+      FLOW_API_KEY: ${FLOW_API_KEY:-}
+      FLOW_SECRET: ${FLOW_SECRET:-}
+      APP_URL: ${APP_URL:-http://localhost:5173}
+      SERVER_URL: ${SERVER_URL:-http://localhost:4000}
+      SUPABASE_URL: ${SUPABASE_URL:-https://xelzdjgoxwddgjqouywm.supabase.co/rest/v1}
+      SUPABASE_KEY: ${SUPABASE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlbHpkamdveHdkZGdqcW91eXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzODM3MzQsImV4cCI6MjA5MTk1OTczNH0.C3BIBRqIM1PSliMQPKFtJVMujFFDewNTr1TU8EU9Ask}
+
+volumes:
+  pgdata:
+  dbgate-data:

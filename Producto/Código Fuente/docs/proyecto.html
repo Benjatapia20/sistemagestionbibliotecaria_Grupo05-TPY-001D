@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema Bibliotecario Resiliente — Documentación Técnica</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --bg-card: #1e293b;
+    --bg-card-alt: #172033;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent2: #818cf8;
+    --green: #34d399;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --purple: #c084fc;
+    --border: #334155;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1a1a3e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 80px 0 60px;
+    text-align: center;
+  }
+  .hero h1 { font-size: 2.8rem; font-weight: 800; letter-spacing: -0.5px; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 16px; }
+  .hero .subtitle { font-size: 1.15rem; color: var(--text-muted); max-width: 700px; margin: 0 auto 32px; }
+  .hero .badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .hero .badge { background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.2); color: var(--accent); padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 500; }
+
+  /* SECTION */
+  .section { padding: 64px 0; }
+  .section:nth-child(even) { background: var(--bg-card-alt); }
+  .section h2 { font-size: 1.8rem; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+  .section .section-desc { color: var(--text-muted); margin-bottom: 32px; font-size: 1rem; }
+
+  /* PROBLEM BOX */
+  .problem-box {
+    background: linear-gradient(135deg, rgba(248,113,113,0.08), rgba(248,113,113,0.02));
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 32px;
+  }
+  .problem-box h3 { color: var(--red); margin-bottom: 8px; font-size: 1.1rem; }
+  .problem-box p { color: var(--text-muted); font-size: 0.95rem; }
+
+  /* CARDS */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+  .card h3 { font-size: 1.1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .card p, .card li { color: var(--text-muted); font-size: 0.92rem; }
+  .card ul { padding-left: 18px; }
+  .card ul li { margin-bottom: 6px; }
+  .card .icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+
+  .icon-blue { background: rgba(56,189,248,0.15); color: var(--accent); }
+  .icon-green { background: rgba(52,211,153,0.15); color: var(--green); }
+  .icon-purple { background: rgba(192,132,252,0.15); color: var(--purple); }
+  .icon-amber { background: rgba(251,191,36,0.15); color: var(--amber); }
+  .icon-red { background: rgba(248,113,113,0.15); color: var(--red); }
+
+  /* ARCH DIAGRAM */
+  .arch-diagram {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .arch-layer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .arch-box {
+    background: var(--bg-card-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .arch-box.highlight { border-color: var(--accent); background: rgba(56,189,248,0.08); color: var(--accent); }
+  .arch-box.pg { border-color: var(--purple); background: rgba(192,132,252,0.08); color: var(--purple); }
+  .arch-box.front { border-color: var(--green); background: rgba(52,211,153,0.08); color: var(--green); }
+  .arch-arrow { color: var(--text-muted); font-size: 1.3rem; }
+  .arch-label { color: var(--text-muted); font-size: 0.75rem; text-align: center; margin: 4px 0 16px; }
+
+  /* FLOW */
+  .flow-steps { display: flex; gap: 0; align-items: flex-start; overflow-x: auto; padding-bottom: 16px; }
+  .flow-step {
+    flex: 1; min-width: 160px; background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; text-align: center; position: relative;
+  }
+  .flow-step + .flow-step { margin-left: -1px; }
+  .flow-step .step-num { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #0f172a; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-weight: 700; font-size: 0.9rem; }
+  .flow-step h4 { font-size: 0.92rem; margin-bottom: 6px; }
+  .flow-step p { font-size: 0.8rem; color: var(--text-muted); }
+
+  /* TABLE */
+  .tech-table { width: 100%; border-collapse: collapse; }
+  .tech-table th { text-align: left; padding: 12px 16px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); border-bottom: 2px solid var(--border); }
+  .tech-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+  .tech-table tr:hover td { background: rgba(56,189,248,0.04); }
+
+  /* FOOTER */
+  footer { text-align: center; padding: 48px 0; color: var(--text-muted); font-size: 0.85rem; border-top: 1px solid var(--border); }
+
+  /* TAGS */
+  .tag { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 500; margin: 2px; }
+  .tag-ts { background: rgba(49,120,198,0.15); color: #3178c6; }
+  .tag-react { background: rgba(97,218,251,0.12); color: #61dafb; }
+  .tag-pg { background: rgba(51,103,145,0.2); color: #336791; }
+  .tag-docker { background: rgba(13,183,237,0.12); color: #0db7ed; }
+  .tag-node { background: rgba(104,159,99,0.15); color: #68a063; }
+  .tag-flow { background: rgba(255,152,0,0.12); color: #ff9800; }
+  .tag-supa { background: rgba(62,207,142,0.12); color: #3ecf8e; }
+
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 2rem; }
+    .cards { grid-template-columns: 1fr; }
+    .arch-layer { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============= HERO ============= -->
+<div class="hero">
+  <div class="container">
+    <h1>Sistema Bibliotecario Resiliente</h1>
+    <p class="subtitle">
+      Plataforma de gestión bibliotecaria diseñada para seguir funcionando 
+      <strong>sin conexión a internet</strong>, evitando atrasos, multas injustas y 
+      dependencia de servicios externos.
+    </p>
+    <div class="badges">
+      <span class="badge">🏛️ Local-First</span>
+      <span class="badge">🔄 Offline-First</span>
+      <span class="badge">☁️ Sincronización Online</span>
+      <span class="badge">💳 Pagos Integrados</span>
+      <span class="badge">🤖 Chatbot IA</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============= PROBLEMA ============= -->
+<div class="section">
+  <div class="container">
+    <h2>🎯 El Problema</h2>
+    <p class="section-desc">Contexto real que motivó el desarrollo de este sistema</p>
+    
+    <div class="problem-box">
+      <h3>⚠ Situación detectada</h3>
+      <p>
+        En una biblioteca real, su sistema de gestión dependía completamente de internet. 
+        Cuando el servicio de internet fallaba —algo frecuente en ciertas zonas— el sistema 
+        completo dejaba de funcionar. Esto provocaba:
+      </p>
+      <ul style="color: var(--text-muted); margin-top: 12px; padding-left: 20px; font-size: 0.92rem;">
+        <li><strong>Devoluciones no registradas</strong> → multas por atraso injustas</li>
+        <li><strong>Préstamos bloqueados</strong> → usuarios sin acceso a libros</li>
+        <li><strong>Pérdida de datos</strong> → transacciones no guardadas</li>
+        <li><strong>Dependencia total</strong> de un solo punto de fallo</li>
+      </ul>
+    </div>
+
+    <div class="card" style="border-color: var(--green); margin-top: 20px;">
+      <h3><span class="icon icon-green">✅</span> La Solución</h3>
+      <p>
+        Un sistema <strong>local-first</strong> que opera con base de datos PostgreSQL en Docker. 
+        Funciona completamente offline dentro de la red local de la biblioteca. 
+        Cuando hay internet, se sincroniza automáticamente con Supabase para permitir consultas online 
+        (catálogo, disponibilidad, multas). La experiencia del usuario es idéntica en ambos modos.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ============= ARQUITECTURA ============= -->
+<div class="section">
+  <div class="container">
+    <h2>🏗️ Arquitectura del Sistema</h2>
+    <p class="section-desc">Componentes principales y cómo se comunican entre sí</p>
+
+    <div class="arch-diagram">
+      <div class="arch-layer">
+        <span class="arch-box front">React + TypeScript<br><small>Vite SPA</small></span>
+        <span class="arch-arrow">→</span>
+        <span class="arch-box highlight">PostgREST API<br><small>:3000</small></span>
+        <span class="arch-arrow">→</span>
+        <span class="arch-box pg">PostgreSQL 17<br><small>Schema API</small></span>
+      </div>
+      <div class="arch-label">▲ Capa de datos (Docker Compose)</div>
+
+      <div class="arch-layer">
+        <span class="arch-box front">Upload Server<br><small>Express :4000</small></span>
+        <span class="arch-box" style="border-color: var(--amber); background: rgba(251,191,36,0.08); color: var(--amber);">Flow.cl SDK<br><small>Pagos</small></span>
+        <span class="arch-box" style="border-color: var(--purple); background: rgba(192,132,252,0.08); color: var(--purple);">Ollama<br><small>IA Chatbot</small></span>
+      </div>
+      <div class="arch-label">▲ Servicios auxiliares (Docker)</div>
+
+      <div class="arch-layer">
+        <span class="arch-box" style="border-color: var(--green); background: rgba(62,207,142,0.08); color: var(--green);">Supabase<br><small>Réplica online</small></span>
+        <span class="arch-box" style="border-color: var(--accent); background: rgba(56,189,248,0.08); color: var(--accent);">Netlify<br><small>Frontend online</small></span>
+        <span class="arch-box" style="border-color: var(--red); background: rgba(248,113,113,0.08); color: var(--red);">Netlify Functions<br><small>Flow signing</small></span>
+      </div>
+      <div class="arch-label">▲ Capa online (solo cuando hay internet)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============= TECNOLOGÍAS ============= -->
+<div class="section">
+  <div class="container">
+    <h2>⚙️ Stack Tecnológico</h2>
+    <p class="section-desc">Todas las tecnologías utilizadas en el proyecto</p>
+
+    <table class="tech-table">
+      <tr><th>Categoría</th><th>Tecnología</th><th>Propósito</th></tr>
+      <tr><td>Frontend</td><td><span class="tag tag-react">React 19</span> <span class="tag tag-ts">TypeScript</span> Vite 8</td><td>SPA con React Router, shadcn/ui (Radix), Tailwind CSS v4</td></tr>
+      <tr><td>Base de datos</td><td><span class="tag tag-pg">PostgreSQL 17</span></td><td>Schema <code>api</code> con 22 tablas, triggers, funciones PL/pgSQL</td></tr>
+      <tr><td>API</td><td><span class="tag tag-pg">PostgREST 14</span></td><td>API REST automática desde PostgreSQL, role <code>anon</code></td></tr>
+      <tr><td>Backend server</td><td><span class="tag tag-node">Express 5</span> Node 22</td><td>Upload de archivos, PDFs (PDFKit), QR (qrcode), sync, pagos Flow</td></tr>
+      <tr><td>Contenedores</td><td><span class="tag tag-docker">Docker Compose</span></td><td>4 servicios: db, postgrest, upload-server, dbgate</td></tr>
+      <tr><td>Autenticación</td><td>LocalStorage + UUID</td><td>Usuarios con roles (admin, bibliotecario, usuario), contraseñas</td></tr>
+      <tr><td>UI Components</td><td>shadcn/ui (Radix primitives)</td><td>Cards, Dialogs, Tabs, Sheets, Selects, Switches, Avatars, Tables, Calendar</td></tr>
+      <tr><td>Pagos</td><td><span class="tag tag-flow">Flow.cl</span> Sandbox</td><td>Webpay, tarjetas, HMAC-SHA256 signing, webhooks</td></tr>
+      <tr><td>Sincronización</td><td><span class="tag tag-supa">Supabase</span></td><td>Réplica online, PostgREST API, UPSERT incremental</td></tr>
+      <tr><td>Deploy online</td><td><span class="tag tag-node">Netlify</span> + Functions</td><td>Frontend estático + serverless para firma Flow</td></tr>
+      <tr><td>IA Chatbot</td><td>Ollama + Qwen 2.5 14B</td><td>Function calling: buscar libros, autores, préstamos, carrito</td></tr>
+      <tr><td>Notificaciones</td><td>DB polling (15s)</td><td>Notificaciones persistentes en PostgreSQL</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============= BASE DE DATOS ============= -->
+<div class="section">
+  <div class="container">
+    <h2>🗄️ Base de Datos</h2>
+    <p class="section-desc">Schema <code>api</code> — 22 tablas con triggers, funciones y constraints</p>
+
+    <div class="cards">
+      <div class="card">
+        <h3><span class="icon icon-blue">📚</span> Tablas principales</h3>
+        <ul>
+          <li><strong>autores</strong> — nombre, nacionalidad, biografía</li>
+          <li><strong>libros</strong> — título, sinopsis, ISBN, carátula</li>
+          <li><strong>ejemplares</strong> — código LIB-X-XXX, estado, condición</li>
+          <li><strong>editoriales</strong>, <strong>géneros</strong>, <strong>etiquetas</strong></li>
+          <li><strong>libros_generos</strong>, <strong>libros_etiquetas</strong> (N:M)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-purple">👤</span> Usuarios y préstamos</h3>
+        <ul>
+          <li><strong>usuario</strong> — UUID, nombre_usuario, rol, RUT, email</li>
+          <li><strong>prestamos</strong> — 9 estados: pendiente → en_revision → por_entregar → activo → devuelto</li>
+          <li><strong>prestamos_grupo</strong> — pedidos con código PED-YYYY-XXXX</li>
+          <li><strong>multas</strong> — $500/día, máximo $10.000, pagos Flow</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-green">📋</span> Reseñas y listas</h3>
+        <ul>
+          <li><strong>resenas</strong> — puntuación 1-5, comentario, fotos</li>
+          <li><strong>listas</strong> — Favoritos, Por leer, Leídos (default)</li>
+          <li><strong>listas_libros</strong> — relación N:M</li>
+          <li>Trigger: solo reseñar libros devueltos</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-amber">⚡</span> Triggers (11)</h3>
+        <ul>
+          <li><strong>updated_at</strong> — timestamp automático en todas las tablas</li>
+          <li><strong>codigo_ejemplar</strong> — genera LIB-X-XXX</li>
+          <li><strong>validar_ejemplar_prestamo</strong> — gestiona estados (disponible/reservado/prestado)</li>
+          <li><strong>actualizar_disponibilidad_libro</strong> — recalcula stock</li>
+          <li><strong>marcar_atrasado_y_multar</strong> — multas automáticas</li>
+          <li><strong>validar_resena</strong> — solo si hay préstamo devuelto</li>
+          <li><strong>generar_codigo_pedido</strong> — PED-YYYY-XXXX</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============= FLUJOS ============= -->
+<div class="section">
+  <div class="container">
+    <h2>🔄 Flujos Principales</h2>
+    <p class="section-desc">Los procesos más importantes del sistema</p>
+
+    <h3 style="font-size: 1.05rem; margin-bottom: 16px; color: var(--accent);">📖 Préstamo de libros</h3>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="step-num">1</div><h4>Catálogo</h4><p>Usuario explora libros con búsqueda, filtros y portadas</p></div>
+      <div class="flow-step"><div class="step-num">2</div><h4>Carrito</h4><p>Agrega hasta 5 ejemplares, elige fecha de devolución</p></div>
+      <div class="flow-step"><div class="step-num">3</div><h4>Pedido</h4><p>Se crea grupo con estado pendiente + código PED</p></div>
+      <div class="flow-step"><div class="step-num">4</div><h4>Revisión</h4><p>Admin asigna ejemplares, marca no disponibles si aplica</p></div>
+      <div class="flow-step"><div class="step-num">5</div><h4>Entrega</h4><p>Préstamo activo, ejemplar → prestado, QR generado</p></div>
+      <div class="flow-step"><div class="step-num">6</div><h4>Devolución</h4><p>Escaneo QR, ejemplar liberado, opción de reseña</p></div>
+    </div>
+
+    <h3 style="font-size: 1.05rem; margin: 32px 0 16px; color: var(--red);">💸 Multas y Pagos</h3>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="step-num">1</div><h4>Vencimiento</h4><p>Trigger marca activo → atrasado si fecha < hoy</p></div>
+      <div class="flow-step"><div class="step-num">2</div><h4>Multa</h4><p>Se crea registro con $500/día (máx $10.000)</p></div>
+      <div class="flow-step"><div class="step-num">3</div><h4>Notificación</h4><p>Badge rojo en header: "Pagar $X.XXX"</p></div>
+      <div class="flow-step"><div class="step-num">4</div><h4>Pago</h4><p>Flow.cl (Webpay) o Simular pago, PDF comprobante</p></div>
+      <div class="flow-step"><div class="step-num">5</div><h4>Desbloqueo</h4><p>Multas pagadas → usuario puede pedir libros de nuevo</p></div>
+    </div>
+
+    <h3 style="font-size: 1.05rem; margin: 32px 0 16px; color: var(--green);">☁️ Sincronización</h3>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="step-num">1</div><h4>Local</h4><p>Todo funciona con PostgreSQL Docker</p></div>
+      <div class="flow-step"><div class="step-num">2</div><h4>Sync Push</h4><p>UPSERT incremental: solo cambios desde última sync</p></div>
+      <div class="flow-step"><div class="step-num">3</div><h4>Supabase</h4><p>Réplica online con las mismas tablas</p></div>
+      <div class="flow-step"><div class="step-num">4</div><h4>Netlify</h4><p>Frontend online consulta Supabase (catálogo, perfil)</p></div>
+      <div class="flow-step"><div class="step-num">5</div><h4>Webhook</h4><p>Netlify Functions firma pagos Flow online</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============= FEATURES ============= -->
+<div class="section">
+  <div class="container">
+    <h2>✨ Características</h2>
+    <p class="section-desc">Funcionalidades implementadas</p>
+
+    <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+      <div class="card">
+        <h3><span class="icon icon-blue">🔐</span> Autenticación</h3>
+        <p>Login, registro, recuperación de contraseña. 3 roles: admin, bibliotecario, usuario. Persistencia en localStorage.</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-green">📚</span> Catálogo</h3>
+        <p>57 libros con 37 autores. Búsqueda por título, filtro por género/autor/etiqueta. Portadas de OpenLibrary + Google Books. Stock en tiempo real.</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-purple">🛒</span> Carrito + Pedidos</h3>
+        <p>Máximo 5 ejemplares. Date picker para devolución. Carrito en PostgreSQL. Pedidos con código PED-YYYY-XXXX.</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-amber">👤</span> Perfiles públicos</h3>
+        <p>URL /perfil/{username}. Avatar, bio, listas públicas, reseñas, libros leídos. Tabs con variante line. Edición inline.</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-red">⭐</span> Reseñas</h3>
+        <p>Puntuación 1-5 estrellas, comentarios, fotos con lightbox. Solo usuarios que devolvieron el libro. Editar/eliminar.</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-blue">📋</span> Listas</h3>
+        <p>Favoritos, Por leer, Leídos. Marcar como leído quita de Por leer. Contador en perfil. Portada, visibilidad pública/privada.</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-green">🏛️</span> Admin</h3>
+        <p>CRUD de libros, autores, géneros, editoriales, etiquetas, usuarios. Toggle disponibilidad. QR scanner. Dashboard con estadísticas.</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-purple">🔍</span> Operaciones</h3>
+        <p>Revisión de pedidos con asignación de ejemplares. Toggle modo online/offline. Búsqueda de usuarios activos. Notificaciones push.</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-amber">💳</span> Multas y Flow</h3>
+        <p>Multas por atraso ($500/día, máx $10.000). Badge rojo en header. Pago con Flow.cl (Webpay sandbox). PDF de comprobante. Bloqueo de préstamos.</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-red">🤖</span> Chatbot IA</h3>
+        <p>BiblioBot con Qwen 2.5 14B vía Ollama. Function calling: buscar libros, autores, géneros, mis préstamos. Agregar al carrito por voz/texto.</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-blue">🗺️</span> Mapa</h3>
+        <p>Mapa interactivo de la biblioteca con 23 secciones: Atención, Lectura, Libros, WiFi, Baños. Imagen personalizable.</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-green">📱</span> QR + PDF</h3>
+        <p>Códigos QR en ejemplares (LIB-X-XXX). PDF de comprobante de pedido con QR. Escáner QR para asignar ejemplares.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============= ESTADOS ============= -->
+<div class="section">
+  <div class="container">
+    <h2>🔄 Máquina de Estados</h2>
+    <p class="section-desc">Transiciones de préstamos y ejemplares</p>
+
+    <div class="cards">
+      <div class="card">
+        <h3><span class="icon icon-blue">📖</span> Préstamo</h3>
+        <p style="font-family: monospace; font-size: 0.85rem; line-height: 2;">
+          pendiente → en_revision → por_entregar → activo → devuelto<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          ↘ no_disponible → solicita_aprobacion<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          ↘ rechazado<br>
+          activo → atrasado (automático si fecha < hoy)
+        </p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon-green">📦</span> Ejemplar</h3>
+        <p style="font-family: monospace; font-size: 0.85rem; line-height: 2;">
+          <strong>Estado</strong> (disponibilidad): disponible → reservado → prestado → disponible<br>
+          <strong>Condición</strong> (física): bueno, regular, dañado, perdido<br>
+          <br>
+          Transiciones automáticas vía triggers. Stock = COUNT(estado='disponible')
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============= ARCHIVOS ============= -->
+<div class="section">
+  <div class="container">
+    <h2>📂 Estructura del Proyecto</h2>
+    <p class="section-desc">Organización de archivos y carpetas</p>
+
+    <table class="tech-table">
+      <tr><th>Directorio</th><th>Contenido</th></tr>
+      <tr><td><code>docker/</code></td><td>init.sql (esquema + seed data), docker-compose.yml, init-supabase.sql</td></tr>
+      <tr><td><code>server/</code></td><td>Express upload server: index.js, flow.js, sync.js, pg.js, chat.js, tools.js, multas-pdf.js, pedido-pdf.js</td></tr>
+      <tr><td><code>src/lib/</code></td><td>api.ts (client PostgREST), api-config.ts (modo local/Supabase), upload.ts</td></tr>
+      <tr><td><code>src/pages/</code></td><td>Login, Inicio, Catalogo, LibroDetalle, MisPedidos, Admin, Operaciones, PerfilPublico, Mapa, Notificaciones</td></tr>
+      <tr><td><code>src/components/</code></td><td>AppLayout, CartDrawer, ChatDrawer, EscannerQR, PDFViewer, Sidebar</td></tr>
+      <tr><td><code>src/contexts/</code></td><td>AuthContext, CartContext, ChatContext, NotificacionesContext</td></tr>
+      <tr><td><code>netlify/</code></td><td>Functions: pago-crear.js, pago-webhook.js, pago-retorno.js</td></tr>
+      <tr><td><code>public/</code></td><td>_redirects para SPA routing en Netlify</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============= FOOTER ============= -->
+<footer>
+  <div class="container">
+    <p style="margin-bottom: 8px; font-size: 1rem; color: var(--text);">
+      <strong>Sistema Bibliotecario Resiliente</strong>
+    </p>
+    <p>Proyecto final — Duoc UC</p>
+    <p style="margin-top: 4px;">
+      <span class="tag tag-ts">TypeScript</span>
+      <span class="tag tag-react">React 19</span>
+      <span class="tag tag-pg">PostgreSQL 17</span>
+      <span class="tag tag-docker">Docker</span>
+      <span class="tag tag-node">Express</span>
+      <span class="tag tag-flow">Flow.cl</span>
+      <span class="tag tag-supa">Supabase</span>
+    </p>
+    <p style="margin-top: 12px; font-size: 0.8rem;">
+      Diseñado para funcionar sin internet. Sincronización cuando está disponible.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

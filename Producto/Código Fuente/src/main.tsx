@@ -1,13 +1,19 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { ThemeProvider } from 'next-themes'
+import { Toaster } from '@/components/ui/sonner'
+import { initCustomHost } from '@/lib/api-config'
 import './index.css'
 import App from './App.tsx'
-import { registerSW } from 'virtual:pwa-register'
-
-registerSW({ immediate: true })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <App />
+      <Toaster />
+    </ThemeProvider>
   </StrictMode>,
 )
+
+// Load custom host from configuracion in background (non-blocking)
+initCustomHost()
