@@ -10,7 +10,7 @@ El sistema está desplegado y se puede probar sin necesidad de instalar nada:
 
 **[proyectogestionbiblioteca.netlify.app](https://proyectogestionbiblioteca.netlify.app/)**
 
-Esta versión funciona con Supabase como base de datos en la nube y está alojada en Netlify. El chat de asistencia usa GPT-4o-mini a través de GitHub Models.
+Esta versión funciona con Supabase como base de datos en la nube y está alojada en Netlify. El chat de asistencia usa GPT-4o-mini a través de GitHub Models. Solo están habilitadas las funciones de usuario normal; las funciones de administrador y bibliotecario son exclusivas de la versión local.
 
 ---
 
