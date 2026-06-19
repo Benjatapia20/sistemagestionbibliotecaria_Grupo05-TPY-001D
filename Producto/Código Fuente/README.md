@@ -103,11 +103,18 @@ El chat de asistencia está en el menú lateral.
 
 ### Pagos con Flow
 
-El sistema usa Flow (pasarela de pagos chilena) en modo sandbox. Para probar los pagos se puede usar la tarjeta de prueba:
+El sistema usa Flow (pasarela de pagos chilena) en modo sandbox. Los pasos para probar un pago de prueba son:
 
-- **Número:** 4051885600446623
-- **CVV:** 123
-- **Fecha de vencimiento:** cualquiera futura
+1. Al pagar una multa, el sistema redirige al sandbox de Flow.
+2. Ingresar los datos de la tarjeta de prueba:
+   - **Número:** 4051885600446623
+   - **CVV:** 123
+   - **Fecha de vencimiento:** cualquiera futura
+3. Flow pedirá autenticarse con RUT y clave de prueba:
+   - **RUT:** 11.111.111-1
+   - **Clave:** 123
+4. Elegir si se desea **aprobar** o **rechazar** la transacción de prueba.
+5. Flow redirige de vuelta al sistema con el resultado.
 
 ---
 
